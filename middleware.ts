@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const config = {
-  // 認証を適用するパスを定義（すべてに適用）
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|manifest.json).*)'],
+  // 認証を適用するパスを定義（静的ファイルを除外）
+  matcher: [
+    /*
+     * 以下のパスを認証対象外とする:
+     * - /api/ (API Routes)
+     * - /_next/static (Next.jsの静的アセット)
+     * - /_next/image (画像最適化ファイル)
+     * - /favicon.ico
+     * - /manifest.webmanifest
+     * - /sw.js (Service Worker)
+     * - /icons/* (PWAアイコン)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons|robots.txt).*)',
+  ],
 };
 
 export function middleware(req: NextRequest) {
