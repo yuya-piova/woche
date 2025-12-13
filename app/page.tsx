@@ -16,20 +16,26 @@ type Task = {
   title: string;
   date: string | null;
   state: string;
-  cat: string; // 'Work' or 'Life'
+  cat: string;
   subCats: string[];
-  theme: string; // 'blue' or 'green'
+  theme: string;
   url: string;
 };
 
-// ★ フィルタの状態型を定義
 type TaskFilter = 'All' | 'Work';
+
+// ★ ポップアップの状態型
+type PopupState = Task | null;
 
 export default function TaskDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
-  const [filter, setFilter] = useState<TaskFilter>('All'); // ★ 1. フィルタの状態を管理
+  const [filter, setFilter] = useState<TaskFilter>('All');
+  const [popupTask, setPopupTask] = useState<PopupState>(null); // ★ ポップアップ状態
+
+  // (中略 - ロジック部分は変更なし)
+  // ... [既存のロジック: today, startOfCurrentWeek, weekDays, fetchTasks, useEffect, handleComplete は省略]
 
   // 今日の日付と、今週の月曜日を取得
   const today = new Date();
@@ -71,39 +77,33 @@ export default function TaskDashboard() {
     };
   }, []);
 
-  // ★ フィルタリングロジック: Work または All でタスクを絞り込む
+  const handleComplete = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const filterTasksByCat = (tasksToFilter: Task[]) => {
     if (filter === 'All') {
       return tasksToFilter;
     }
-    // 'Work' フィルタの場合: cat が 'Work' のタスクのみ返す
     return tasksToFilter.filter((task) => task.cat === 'Work');
   };
 
-  // ■ タスクの完了処理（擬似的）
-  const handleComplete = (id: string) => {
-    // 実際には Notin APIを叩く
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  // ■ タスクの振り分けロジック (フィルタを適用)
   const getTasksForDay = (day: Date) => {
     const tasksForDay = tasks.filter((task) => {
       if (!task.date) return false;
       return isSameDay(parseISO(task.date), day);
     });
-    // ★ 日付で絞り込んだ後、Work/All フィルタを適用
     return filterTasksByCat(tasksForDay);
   };
 
   const getInboxTasks = () => {
     const inboxTasks = tasks.filter((task) => {
-      if (!task.date) return true; // 日付未設定
-      return isBefore(parseISO(task.date), startOfCurrentWeek); // 今週の月曜より前
+      if (!task.date) return true;
+      return isBefore(parseISO(task.date), startOfCurrentWeek);
     });
-    // ★ Inboxでも Work/All フィルタを適用
     return filterTasksByCat(inboxTasks);
   };
+  // (中略終了)
 
   // --- UIコンポーネント (カード) ---
   const TaskCard = ({ task }: { task: Task }) => {
@@ -122,6 +122,12 @@ export default function TaskDashboard() {
       },
     };
     const style = colors[task.theme] || colors.gray;
+
+    // ★ 2. URLスキーム追加：Notionアプリで開くようにする
+    const notionAppUrl = task.url.replace(
+      'https://www.notion.so/',
+      'notion://'
+    );
 
     return (
       <div
@@ -145,27 +151,54 @@ export default function TaskDashboard() {
               </span>
             ))}
           </div>
-          <a
-            href={task.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neutral-500 hover:text-white p-1"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-              className="w-4 h-4"
+
+          <div className="flex gap-2 items-center">
+            {/* ★ 3. 詳細ポップアップボタン */}
+            <button
+              onClick={() => setPopupTask(task)}
+              className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
+              title="詳細を開く"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-              />
-            </svg>
-          </a>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.25 11.25l.041.02a.75.75 0 010 1.06l-.041.02m-4.5 0a.75.75 0 110-1.06.75.75 0 010 1.06m9 0a.75.75 0 110-1.06.75.75 0 010 1.06M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </button>
+
+            {/* URLリンクボタン (Notionアプリで開く) */}
+            <a
+              href={notionAppUrl} // ★ URLスキームを使用
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
+              title="Notionアプリで開く"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                />
+              </svg>
+            </a>
+          </div>
         </div>
 
         <div className="font-bold mb-1 text-lg leading-tight">{task.title}</div>
@@ -192,53 +225,54 @@ export default function TaskDashboard() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#171717] text-white font-sans selection:bg-blue-500 selection:text-white">
-      {/* Header */}
+      {/* Header (★ 1. トグルをこの列に統合) */}
       <header className="flex-none p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/95 z-20">
-        <div>
-          <h1 className="text-neutral-500 text-xs font-bold uppercase tracking-wider">
-            My Tasks
-          </h1>
-          <div className="text-xl font-bold flex items-center gap-2">
-            <span>Dashboard</span>
-            <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-1 rounded">
-              {format(startOfCurrentWeek, 'MMM d')} -{' '}
-              {format(addDays(startOfCurrentWeek, 6), 'MMM d')}
-            </span>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-neutral-500 text-xs font-bold uppercase tracking-wider">
+              My Tasks
+            </h1>
+            <div className="text-xl font-bold flex items-center gap-2">
+              <span>Dashboard</span>
+              <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-1 rounded">
+                {format(startOfCurrentWeek, 'MMM d')} -{' '}
+                {format(addDays(startOfCurrentWeek, 6), 'MMM d')}
+              </span>
+            </div>
+          </div>
+
+          {/* ★ 1. トグルボタンをHeader内に配置 */}
+          <div className="hidden sm:flex space-x-3 rounded-full bg-neutral-800 p-1">
+            <button
+              onClick={() => setFilter('All')}
+              className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
+                filter === 'All'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-transparent text-neutral-400 hover:text-white'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setFilter('Work')}
+              className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
+                filter === 'Work'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-transparent text-neutral-400 hover:text-white'
+              }`}
+            >
+              Work Only
+            </button>
           </div>
         </div>
+
         <div className="text-3xl font-black tracking-tighter leading-none">
           {currentTime}
         </div>
       </header>
 
-      {/* ★ 1. トグルボタンの配置 */}
-      <div className="flex-none p-2 border-b border-neutral-800 flex justify-center sticky top-0 md:static bg-neutral-900 z-10">
-        <div className="flex space-x-3 rounded-full bg-neutral-800 p-1">
-          <button
-            onClick={() => setFilter('All')}
-            className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
-              filter === 'All'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-transparent text-neutral-400 hover:text-white'
-            }`}
-          >
-            All (Work & Life)
-          </button>
-          <button
-            onClick={() => setFilter('Work')}
-            className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
-              filter === 'Work'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-transparent text-neutral-400 hover:text-white'
-            }`}
-          >
-            Work Only
-          </button>
-        </div>
-      </div>
-      {/* ★ トグルボタンここまで */}
-
       {/* Main Board */}
+      {/* ★ 2. overflow-x-auto, overflow-y-hidden は維持。CSSでスクロールバーを非表示にする */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden bg-black">
         <div className="flex flex-col md:flex-row h-auto md:h-full min-w-full divide-y md:divide-y-0 md:divide-x divide-neutral-800">
           {/* 1. Inbox / Overdue Column */}
@@ -264,7 +298,7 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* 2-8. Week Days Columns */}
+          {/* 2-8. Week Days Columns (省略) */}
           {weekDays.map((day) => {
             const isToday = isSameDay(day, today);
             const dayTasks = getTasksForDay(day);
@@ -317,6 +351,45 @@ export default function TaskDashboard() {
           })}
         </div>
       </main>
+
+      {/* ★ 3. ポップアップモーダルの実装 */}
+      {popupTask && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          onClick={() => setPopupTask(null)} // 背景クリックで閉じる
+        >
+          <div
+            className="bg-neutral-800 p-8 rounded-xl shadow-2xl max-w-lg w-full"
+            onClick={(e) => e.stopPropagation()} // ポップアップ内クリックで閉じない
+          >
+            <h2 className="text-2xl font-bold text-white mb-4">
+              {popupTask.title}
+            </h2>
+            <p className="text-lg text-neutral-300 mb-4">
+              {popupTask.cat} / {popupTask.state}
+            </p>
+            <div className="space-y-2 text-neutral-400 text-sm">
+              <p>
+                <strong>カテゴリー:</strong> {popupTask.cat}
+              </p>
+              <p>
+                <strong>サブカテゴリー:</strong>{' '}
+                {popupTask.subCats.join(', ') || 'N/A'}
+              </p>
+              <p>
+                <strong>期限:</strong> {popupTask.date || '日付未定'}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setPopupTask(null)}
+              className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
