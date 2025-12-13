@@ -2,7 +2,7 @@ import { Client } from '@notionhq/client';
 import { NextResponse } from 'next/server';
 
 // Notionクライアントの初期化 (環境変数を使用)
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID;
 
 // Notionのステータスプロパティ名 (データベースの設定に合わせる)
