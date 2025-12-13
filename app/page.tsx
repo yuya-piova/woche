@@ -77,8 +77,28 @@ export default function TaskDashboard() {
     };
   }, []);
 
-  const handleComplete = (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const handleComplete = async (id: string) => {
+    try {
+      // 1. Notion APIへ完了リクエストを送信
+      const res = await fetch('/api/tasks/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Notion側でのタスク完了に失敗しました');
+      }
+
+      // 2. 成功した場合のみ、フロントエンドのリストから削除
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert('タスクの完了処理に失敗しました。コンソールを確認してください。');
+      // 失敗した場合はリストから削除しない
+    }
   };
 
   const filterTasksByCat = (tasksToFilter: Task[]) => {
