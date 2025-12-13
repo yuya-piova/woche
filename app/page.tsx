@@ -23,8 +23,6 @@ type Task = {
 };
 
 type TaskFilter = 'All' | 'Work';
-
-// ★ ポップアップの状態型
 type PopupState = Task | null;
 
 export default function TaskDashboard() {
@@ -32,10 +30,9 @@ export default function TaskDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
   const [filter, setFilter] = useState<TaskFilter>('All');
-  const [popupTask, setPopupTask] = useState<PopupState>(null); // ★ ポップアップ状態
-
-  // (中略 - ロジック部分は変更なし)
-  // ... [既存のロジック: today, startOfCurrentWeek, weekDays, fetchTasks, useEffect, handleComplete は省略]
+  const [popupTask, setPopupTask] = useState<PopupState>(null);
+  // ★ 処理中のタスクIDを保持するステート（ローディング表示用）
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // 今日の日付と、今週の月曜日を取得
   const today = new Date();
@@ -77,9 +74,15 @@ export default function TaskDashboard() {
     };
   }, []);
 
+  // ★ 完了処理（ローディング表示とNotion API連携）
   const handleComplete = async (id: string) => {
+    // 既に他のタスクを処理中の場合や、このタスク自体が処理中の場合は何もしない
+    if (processingId) return;
+
+    setProcessingId(id); // 処理開始: このタスクIDをセット
+
     try {
-      // 1. Notion APIへ完了リクエストを送信
+      // Notion APIへ完了リクエストを送信
       const res = await fetch('/api/tasks/complete', {
         method: 'POST',
         headers: {
@@ -92,22 +95,27 @@ export default function TaskDashboard() {
         throw new Error('Notion側でのタスク完了に失敗しました');
       }
 
-      // 2. 成功した場合のみ、フロントエンドのリストから削除
+      // 成功した場合のみ、フロントエンドのリストから削除
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       console.error(e);
       alert('タスクの完了処理に失敗しました。コンソールを確認してください。');
       // 失敗した場合はリストから削除しない
+    } finally {
+      setProcessingId(null); // 処理終了
     }
   };
 
+  // ★ フィルタリングロジック
   const filterTasksByCat = (tasksToFilter: Task[]) => {
     if (filter === 'All') {
       return tasksToFilter;
     }
+    // 'Work' フィルタの場合: cat が 'Work' のタスクのみ返す
     return tasksToFilter.filter((task) => task.cat === 'Work');
   };
 
+  // 日付指定タスク（フィルタ適用済）
   const getTasksForDay = (day: Date) => {
     const tasksForDay = tasks.filter((task) => {
       if (!task.date) return false;
@@ -116,14 +124,14 @@ export default function TaskDashboard() {
     return filterTasksByCat(tasksForDay);
   };
 
+  // Inboxタスク（フィルタ適用済）
   const getInboxTasks = () => {
     const inboxTasks = tasks.filter((task) => {
-      if (!task.date) return true;
-      return isBefore(parseISO(task.date), startOfCurrentWeek);
+      if (!task.date) return true; // 日付未設定
+      return isBefore(parseISO(task.date), startOfCurrentWeek); // 今週の月曜より前
     });
     return filterTasksByCat(inboxTasks);
   };
-  // (中略終了)
 
   // --- UIコンポーネント (カード) ---
   const TaskCard = ({ task }: { task: Task }) => {
@@ -143,11 +151,12 @@ export default function TaskDashboard() {
     };
     const style = colors[task.theme] || colors.gray;
 
-    // ★ 2. URLスキーム追加：Notionアプリで開くようにする
+    // ★ Notionアプリで開くためのURLスキーム
     const notionAppUrl = task.url.replace(
       'https://www.notion.so/',
       'notion://'
     );
+    const isProcessing = processingId === task.id; // 処理中判定
 
     return (
       <div
@@ -173,7 +182,7 @@ export default function TaskDashboard() {
           </div>
 
           <div className="flex gap-2 items-center">
-            {/* ★ 3. 詳細ポップアップボタン */}
+            {/* 詳細ポップアップボタン */}
             <button
               onClick={() => setPopupTask(task)}
               className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
@@ -197,7 +206,7 @@ export default function TaskDashboard() {
 
             {/* URLリンクボタン (Notionアプリで開く) */}
             <a
-              href={notionAppUrl} // ★ URLスキームを使用
+              href={notionAppUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
@@ -226,11 +235,45 @@ export default function TaskDashboard() {
           Status: {task.state}
         </div>
 
+        {/* ★ 完了ボタン（ローディング表示対応） */}
         <button
           onClick={() => handleComplete(task.id)}
-          className="text-xs w-full py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white rounded transition font-bold border border-neutral-800"
+          disabled={isProcessing}
+          className={`text-xs w-full py-2 rounded transition font-bold border 
+            ${
+              isProcessing
+                ? 'bg-red-900/50 text-red-300 border-red-800 cursor-not-allowed' // 処理中のスタイル
+                : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border-neutral-800' // 通常のスタイル
+            }`}
         >
-          完了 (Done)
+          {isProcessing ? (
+            // ローディング表示
+            <div className="flex items-center justify-center space-x-2">
+              <svg
+                className="animate-spin h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>処理中...</span>
+            </div>
+          ) : (
+            '完了 (Done)'
+          )}
         </button>
       </div>
     );
@@ -245,7 +288,7 @@ export default function TaskDashboard() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#171717] text-white font-sans selection:bg-blue-500 selection:text-white">
-      {/* Header (★ 1. トグルをこの列に統合) */}
+      {/* Header (トグルと日付を統合) */}
       <header className="flex-none p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/95 z-20">
         <div className="flex items-center gap-4">
           <div>
@@ -261,7 +304,7 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* ★ 1. トグルボタンをHeader内に配置 */}
+          {/* ★ トグルボタンをHeader内に配置 */}
           <div className="hidden sm:flex space-x-3 rounded-full bg-neutral-800 p-1">
             <button
               onClick={() => setFilter('All')}
@@ -292,7 +335,6 @@ export default function TaskDashboard() {
       </header>
 
       {/* Main Board */}
-      {/* ★ 2. overflow-x-auto, overflow-y-hidden は維持。CSSでスクロールバーを非表示にする */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden bg-black">
         <div className="flex flex-col md:flex-row h-auto md:h-full min-w-full divide-y md:divide-y-0 md:divide-x divide-neutral-800">
           {/* 1. Inbox / Overdue Column */}
@@ -318,7 +360,7 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* 2-8. Week Days Columns (省略) */}
+          {/* 2-8. Week Days Columns */}
           {weekDays.map((day) => {
             const isToday = isSameDay(day, today);
             const dayTasks = getTasksForDay(day);
@@ -372,7 +414,7 @@ export default function TaskDashboard() {
         </div>
       </main>
 
-      {/* ★ 3. ポップアップモーダルの実装 */}
+      {/* ★ ポップアップモーダルの実装（詳細表示） */}
       {popupTask && (
         <div
           className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
@@ -385,10 +427,10 @@ export default function TaskDashboard() {
             <h2 className="text-2xl font-bold text-white mb-4">
               {popupTask.title}
             </h2>
-            <p className="text-lg text-neutral-300 mb-4">
-              {popupTask.cat} / {popupTask.state}
-            </p>
-            <div className="space-y-2 text-neutral-400 text-sm">
+            <div className="mt-6 pt-4 border-t border-neutral-700/50 space-y-2 text-neutral-400 text-sm">
+              <p>
+                <strong>ステータス:</strong> {popupTask.state}
+              </p>
               <p>
                 <strong>カテゴリー:</strong> {popupTask.cat}
               </p>
