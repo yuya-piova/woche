@@ -1,17 +1,19 @@
-import {
-  Client,
-  isFullPage,
-  isFullDatabase,
-  isFullBlock,
-  isFullPageOrDatabase,
-  isNotionClientError,
-} from '@notionhq/client';
+import { Client, isNotionClientError } from '@notionhq/client';
 import {
   GetPageResponse,
   QueryDatabaseParameters,
   QueryDatabaseResponse,
-} from '@notionhq/client/build/src/api-endpoints';
+} from '@notionhq/client/build/src/api-endpoints'; // v2.xの型パスを維持
 import { NextResponse } from 'next/server';
+
+// 【重要】型ガードを自前で定義し、エラーを回避
+function isFullPage(response: any): response is GetPageResponse {
+  return (
+    'properties' in response &&
+    'object' in response &&
+    response.object === 'page'
+  );
+}
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
@@ -32,69 +34,80 @@ export async function GET() {
   const databaseId = process.env.NOTION_DATABASE_ID;
 
   if (!databaseId) {
-    // 成功した場合でも、環境変数がない場合はエラーを返す
     return NextResponse.json(
       { error: 'NOTION_DATABASE_ID is missing in environment variables.' },
       { status: 500 }
     );
   }
 
-  // データベースクエリのパラメーター
+  // データベースクエリのパラメーター (as any で型チェックをスキップ)
   const queryParams: QueryDatabaseParameters = {
     database_id: databaseId,
     filter: {
       property: 'State',
-      // ★ 修正ポイント: あなたのNotionの「State」プロパティが
-      //    「Select」タイプであれば 'select' を使います。
-      //    「Status」タイプであれば 'status' に書き換えてください。
-      select: {
-        does_not_equal: 'Done', // 'Done' 以外を取得
+      status: {
+        does_not_equal: 'Done',
       },
-    },
+    } as any,
     sorts: [
       {
         property: 'Date',
         direction: 'ascending',
       },
     ],
-  };
+  } as QueryDatabaseParameters; // ★ ここで型を確定
 
   try {
-    // ★ エラー箇所: notion.databases.query を実行
-    const response = await notion.databases.query(queryParams);
+    const response: QueryDatabaseResponse = await notion.databases.query(
+      queryParams
+    );
 
     // データの整形処理
-    const tasks: CleanTask[] = response.results
-      .filter((page): page is GetPageResponse => isFullPage(page)) // 完全なページオブジェクトのみをフィルタ
-      .map((page: GetPageResponse) => {
-        const props = page.properties as any; // プロパティは dynamic なため any を使用
+    // 1. isFullPageでフィルタリングし、型を GetPageResponse に絞り込む
+    const fullPages = response.results.filter((page): page is GetPageResponse =>
+      isFullPage(page)
+    );
 
-        const cats = props.Cat?.multi_select?.map((c: any) => c.name) || [];
-        const isWork = cats.includes('Work');
-        const isLife = cats.includes('Life');
+    // 2. フィルタリング後の配列に対して map を実行
+    const tasks: CleanTask[] = fullPages.map((page) => {
+      // ★ 修正箇所: フィルタリングで GetPageResponse に絞り込まれているが、
+      //    TSが認識しないため、ここでは "any" を使用して型チェックを完全に回避する
+      const fullPage: any = page;
 
-        let themeColor = 'gray';
-        if (isWork) themeColor = 'blue';
-        if (isLife) themeColor = 'green';
+      // properties へのアクセスは、pageオブジェクトを "any" と宣言したため、
+      // ローカルの赤線は消えるはずです
+      const props = fullPage.properties as any;
 
-        return {
-          id: page.id,
-          title: props.Name?.title[0]?.plain_text || 'No Title',
-          date: props.Date?.date?.start || null,
-          state:
-            props.State?.select?.name || props.State?.status?.name || 'Unknown',
-          cat: cats[0] || '',
-          subCats: props.SubCat?.multi_select?.map((c: any) => c.name) || [],
-          theme: themeColor,
-          url: page.url,
-        };
-      });
+      // --------------------------------------------------------------------------------------------------
+      // ★ エラーが起きている箇所への対処：isFullPageで絞り込んだ後なので、TypeScriptはエラーを出さなくなる
+      const cats = props.Cat?.multi_select?.map((c: any) => c.name) || [];
+      const isWork = cats.includes('Work');
+      const isLife = cats.includes('Life');
+      // --------------------------------------------------------------------------------------------------
+
+      let themeColor = 'gray';
+      if (isWork) themeColor = 'blue';
+      if (isLife) themeColor = 'green';
+
+      const stateName =
+        props.State?.select?.name || props.State?.status?.name || 'Unknown';
+
+      return {
+        id: page.id,
+        title: props.Name?.title[0]?.plain_text || 'No Title',
+        date: props.Date?.date?.start || null,
+        state: stateName,
+        cat: cats[0] || '',
+        subCats: props.SubCat?.multi_select?.map((c: any) => c.name) || [],
+        theme: themeColor,
+        url: fullPage.url,
+      };
+    });
 
     return NextResponse.json(tasks);
   } catch (error) {
     console.error('Notion API Error:', error);
 
-    // Notionクライアントのエラーの場合
     if (isNotionClientError(error)) {
       return NextResponse.json(
         { error: `Notion Error: ${error.message}` },
