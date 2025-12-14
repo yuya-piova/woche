@@ -337,22 +337,22 @@ export default function TaskDashboard() {
             >
               Work Only
             </button>
-            <button
-              onClick={() => {
-                if (todayRef.current) {
-                  // スクロール可能な親要素を取得し、そこにスクロール処理を適用
-                  const parent = todayRef.current.closest('main');
-                  if (parent) {
-                    parent.scrollLeft =
-                      todayRef.current.offsetLeft - parent.offsetWidth / 2;
-                  }
-                }
-              }}
-              className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-full text-sm font-semibold transition"
-            >
-              Today
-            </button>
           </div>
+          <button
+            onClick={() => {
+              if (todayRef.current) {
+                // スクロール可能な親要素を取得し、そこにスクロール処理を適用
+                const parent = todayRef.current.closest('main');
+                if (parent) {
+                  parent.scrollLeft =
+                    todayRef.current.offsetLeft - parent.offsetWidth / 2;
+                }
+              }
+            }}
+            className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-full text-sm font-semibold transition"
+          >
+            Today
+          </button>
         </div>
 
         <div className="text-3xl font-black tracking-tighter leading-none">
