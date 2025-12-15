@@ -222,28 +222,33 @@ export default function TaskDashboard() {
     };
     const style = colors[task.theme] || colors.gray;
 
+    // Notionアプリで開くためのURLスキーム
     const notionAppUrl = task.url.replace(
       'https://www.notion.so/',
       'notion://'
     );
-    const isProcessing = processingId === task.id; // 処理中判定
+    // 処理中判定
+    const isProcessing = processingId === task.id;
 
     return (
+      // p-3 でコンパクト化
       <div
         className={`bg-neutral-800 p-3 rounded-lg border-l-4 ${style.bg} shadow-sm hover:bg-neutral-700 transition relative group`}
       >
         {/* タイトルとURLリンク */}
         <div className="flex justify-between items-start mb-1">
+          {/* タイトル */}
           <div className="font-bold text-base leading-tight pr-4">
             {task.title}
           </div>
 
+          {/* URLリンクボタン群 */}
           <div className="flex gap-2 items-center flex-none">
-            {/* 詳細ポップアップボタン */}
+            {/* 詳細ポップアップボタン (旧: 詳細/編集ボタン) */}
             <button
               onClick={() => setPopupTask(task)}
               className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
-              title="詳細を開く"
+              title="詳細と編集"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -287,7 +292,7 @@ export default function TaskDashboard() {
           </div>
         </div>
 
-        {/* Status と 完了ボタンを同一行に配置 */}
+        {/* Status, Badges, ポップアップボタン（格上げ）を同一行に配置 */}
         <div className="flex justify-between items-center mt-2">
           {/* Status & Badges (左側) */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -313,44 +318,14 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* 完了ボタン (右側) */}
+          {/* ★ ポップアップボタン (格上げされた、元完了ボタンの位置) ★ */}
           <button
-            onClick={() => handleComplete(task.id)}
-            disabled={isProcessing}
+            onClick={() => setPopupTask(task)}
             className={`flex-none text-xs py-1 px-3 rounded transition font-bold border 
-                ${
-                  isProcessing
-                    ? 'bg-red-900/50 text-red-300 border-red-800 cursor-not-allowed'
-                    : 'bg-green-900/30 hover:bg-green-900/50 text-green-300 border-green-800/50' // 目立つ色に変更
-                }`}
+                bg-blue-600 hover:bg-blue-700 text-white border-blue-700/50 shadow-md`}
+            title="詳細と編集"
           >
-            {isProcessing ? (
-              <div className="flex items-center justify-center space-x-1">
-                <svg
-                  className="animate-spin h-3 w-3"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <span>処理中</span>
-              </div>
-            ) : (
-              '完了'
-            )}
+            詳細
           </button>
         </div>
       </div>
@@ -530,6 +505,7 @@ export default function TaskDashboard() {
                   ステータス:
                 </label>
                 <div className="flex flex-wrap gap-2">
+                  {/* INBOX, Waiting, Going (進行形ステータス) */}
                   {['INBOX', 'Waiting', 'Going'].map((status) => (
                     <button
                       key={status}
@@ -552,7 +528,11 @@ export default function TaskDashboard() {
                       {status}
                     </button>
                   ))}
-                  {/* Done ボタンは完了処理に紐付ける */}
+
+                  {/* ★ ここに区切り線を追加 ★ */}
+                  <div className="w-px h-6 bg-neutral-600 self-center mx-1" />
+
+                  {/* Done ボタン (完了ステータス) */}
                   <button
                     type="button"
                     disabled={processingId === popupTask.id}
@@ -560,11 +540,18 @@ export default function TaskDashboard() {
                       handleComplete(popupTask.id);
                       setPopupTask(null);
                     }}
-                    className={`px-3 py-1 text-sm rounded font-semibold bg-green-700 text-white hover:bg-green-600 ${
-                      processingId === popupTask.id
-                        ? 'opacity-50 cursor-not-allowed'
-                        : ''
-                    }`}
+                    className={`px-3 py-1 text-sm rounded font-semibold bg-green-700 text-white hover:bg-green-600 
+                                ${
+                                  processingId === popupTask.id
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : ''
+                                }
+                                ${
+                                  popupTask.state === 'Done'
+                                    ? 'ring-2 ring-green-400'
+                                    : ''
+                                }  // Doneがアクティブな場合も視覚的に区別
+                            `}
                   >
                     Done
                   </button>
