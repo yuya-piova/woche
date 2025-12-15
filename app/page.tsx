@@ -222,16 +222,13 @@ export default function TaskDashboard() {
     };
     const style = colors[task.theme] || colors.gray;
 
-    // Notionアプリで開くためのURLスキーム
     const notionAppUrl = task.url.replace(
       'https://www.notion.so/',
       'notion://'
     );
-    // 処理中判定
     const isProcessing = processingId === task.id;
 
     return (
-      // p-3 でコンパクト化
       <div
         className={`bg-neutral-800 p-3 rounded-lg border-l-4 ${style.bg} shadow-sm hover:bg-neutral-700 transition relative group`}
       >
@@ -244,29 +241,7 @@ export default function TaskDashboard() {
 
           {/* URLリンクボタン群 */}
           <div className="flex gap-2 items-center flex-none">
-            {/* 詳細ポップアップボタン (旧: 詳細/編集ボタン) */}
-            <button
-              onClick={() => setPopupTask(task)}
-              className="text-neutral-500 hover:text-white p-1 rounded hover:bg-neutral-700 transition"
-              title="詳細と編集"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11.25 11.25l.041.02a.75.75 0 010 1.06l-.041.02m-4.5 0a.75.75 0 110-1.06.75.75 0 010 1.06m9 0a.75.75 0 110-1.06.75.75 0 010 1.06M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </button>
-
-            {/* URLリンクボタン (Notionアプリで開く) */}
+            {/* URLリンクボタン (Notionアプリで開く)  */}
             <a
               href={notionAppUrl}
               target="_blank"
@@ -318,7 +293,7 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* ★ ポップアップボタン (格上げされた、元完了ボタンの位置) ★ */}
+          {/* ポップアップボタン */}
           <button
             onClick={() => setPopupTask(task)}
             className={`flex-none text-xs py-1 px-3 rounded transition font-bold border 
@@ -331,7 +306,6 @@ export default function TaskDashboard() {
       </div>
     );
   };
-
   if (loading)
     return (
       <div className="h-screen bg-black text-white flex items-center justify-center">
