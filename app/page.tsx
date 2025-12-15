@@ -85,6 +85,38 @@ export default function TaskDashboard() {
     localStorage.setItem('wocheFilter', filter);
   }, [filter]); // 依存配列に [filter] を指定
 
+  // ★ 画面スリープ抑制（Wake Lock API）の useEffect
+  useEffect(() => {
+    let wakeLock: WakeLockSentinel | null = null;
+
+    const requestWakeLock = async () => {
+      // APIがサポートされているかチェック
+      if ('wakeLock' in navigator) {
+        try {
+          // Wake Lockをリクエスト
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake Lock アクティブ: 画面スリープを抑制中');
+        } catch (err) {
+          console.error(`Wake Lock リクエスト失敗: ${err}`);
+        }
+      } else {
+        console.warn('Wake Lock APIはサポートされていません。');
+      }
+    };
+
+    // コンポーネントがマウントされたらロックをリクエスト
+    requestWakeLock();
+
+    // コンポーネントがアンマウントされるとき、またはブラウザが非アクティブになったらロックを解除
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+        console.log('Wake Lock 解除: 画面スリープ抑制を終了');
+      }
+    };
+  }, []); // 初回のみ実行
+
   // ★ 完了処理（ローディング表示とNotion API連携）
   const handleComplete = async (id: string) => {
     // 既に他のタスクを処理中の場合や、このタスク自体が処理中の場合は何もしない
