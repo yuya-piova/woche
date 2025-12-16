@@ -417,27 +417,45 @@ export default function TaskDashboard() {
       <main className="flex-1 overflow-x-auto overflow-y-hidden bg-black">
         <div className="flex flex-col md:flex-row h-auto md:h-full min-w-full divide-y md:divide-y-0 md:divide-x divide-neutral-800">
           {/* 1. Inbox / Overdue Column */}
-          <div className="flex-none w-full md:w-80 bg-neutral-900/50 flex flex-col h-auto md:h-full">
-            <div className="p-3 border-b border-red-900/30 bg-red-900/10 sticky top-0 md:static">
-              <h3 className="font-bold text-red-400 flex justify-between items-center">
-                Inbox / Overdue
-                <span className="text-xs bg-red-900 text-red-200 px-2 py-0.5 rounded-full">
-                  {getInboxTasks().length}
-                </span>
-              </h3>
-            </div>
-            <div className="p-3 space-y-3 overflow-y-auto flex-1 h-full min-h-[150px]">
-              {getInboxTasks().length === 0 ? (
-                <div className="text-center text-neutral-700 text-sm py-8">
-                  {filter === 'Work' ? '業務タスクはありません' : 'No Tasks'}
+          {(() => {
+            const inboxTasks = getInboxTasks();
+            const hasNoTasks = inboxTasks.length === 0;
+
+            let widthClass = 'w-full md:w-80';
+            if (hasNoTasks && isCompactPast) {
+              // タスクがなく、コンパクトモードがONの場合
+              widthClass = 'w-1/2 md:w-36'; // 幅を半分に
+            }
+
+            return (
+              <div
+                // ★ 修正後の className を適用
+                className={`flex-none ${widthClass} bg-neutral-900/50 flex flex-col h-auto md:h-full`}
+              >
+                <div className="p-3 border-b border-red-900/30 bg-red-900/10 sticky top-0 md:static">
+                  <h3 className="font-bold text-red-400 flex justify-between items-center">
+                    Inbox / Overdue
+                    <span className="text-xs bg-red-900 text-red-200 px-2 py-0.5 rounded-full">
+                      {inboxTasks.length}
+                    </span>
+                  </h3>
                 </div>
-              ) : (
-                getInboxTasks().map((task) => (
-                  <TaskCard key={task.id} task={task} />
-                ))
-              )}
-            </div>
-          </div>
+                <div className="p-3 space-y-3 overflow-y-auto flex-1 h-full min-h-[150px]">
+                  {inboxTasks.length === 0 ? (
+                    <div className="text-center text-neutral-700 text-sm py-8">
+                      {filter === 'Work'
+                        ? '業務タスクはありません'
+                        : 'No Tasks'}
+                    </div>
+                  ) : (
+                    inboxTasks.map((task) => (
+                      <TaskCard key={task.id} task={task} />
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* 2-8. Week Days Columns */}
           {weekDays.map((day) => {
