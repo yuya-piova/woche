@@ -26,25 +26,44 @@ type TaskFilter = 'All' | 'Work';
 type PopupState = Task | null;
 
 export default function TaskDashboard() {
+  // --- 1. 定数定義 ---
+  // Notion State に対応するカラードットの定義
   const STATE_COLORS: { [key: string]: string } = {
     INBOX: 'bg-red-500', // 赤
     Wrapper: 'bg-blue-500', // 青
     Waiting: 'bg-yellow-500', // 黄色
     Going: 'bg-purple-500', // 紫
-    Done: 'bg-green-500', // Done (参考として残します)
+    Done: 'bg-green-500', // Done
   };
+
+  // --- 2. ステート定義 ---
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
+
+  // フィルタ状態 (localStorageから読み込み)
   const [filter, setFilter] = useState<TaskFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('wocheFilter') as TaskFilter) || 'All';
     }
     return 'All';
   });
+
+  // 過去日の幅縮小モード (localStorageから読み込み)
+  const [isCompactPast, setIsCompactPast] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('wocheCompactPast');
+      return stored === 'true';
+    }
+    return false;
+  });
+
   const [popupTask, setPopupTask] = useState<PopupState>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // 設定モーダルの表示状態
+  const [showSettings, setShowSettings] = useState(false);
 
+  // Todayボタンのスクロール先参照用
   const todayRef = useRef<HTMLDivElement>(null);
 
   // 今日の日付と、今週の月曜日を取得
@@ -54,7 +73,7 @@ export default function TaskDashboard() {
     addDays(startOfCurrentWeek, i)
   );
 
-  // データ取得
+  // --- 3. データ取得 ---
   const fetchTasks = async () => {
     try {
       const res = await fetch('/api/tasks');
@@ -68,6 +87,9 @@ export default function TaskDashboard() {
     }
   };
 
+  // --- 4. useEffect (ライフサイクルとデータ永続化) ---
+
+  // 初期データ取得、時刻更新、データポーリング
   useEffect(() => {
     fetchTasks();
     const timer = setInterval(() => {
@@ -87,20 +109,23 @@ export default function TaskDashboard() {
     };
   }, []);
 
+  // filter の localStorage 保存
   useEffect(() => {
-    // filter の値が変更されたら localStorage に保存
     localStorage.setItem('wocheFilter', filter);
-  }, [filter]); // 依存配列に [filter] を指定
+  }, [filter]);
 
-  // ★ 画面スリープ抑制（Wake Lock API）の useEffect
+  // isCompactPast の localStorage 保存
+  useEffect(() => {
+    localStorage.setItem('wocheCompactPast', isCompactPast.toString());
+  }, [isCompactPast]);
+
+  // 画面スリープ抑制（Wake Lock API）
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
 
     const requestWakeLock = async () => {
-      // APIがサポートされているかチェック
       if ('wakeLock' in navigator) {
         try {
-          // Wake Lockをリクエスト
           wakeLock = await (navigator as any).wakeLock.request('screen');
           console.log('Wake Lock アクティブ: 画面スリープを抑制中');
         } catch (err) {
@@ -111,10 +136,8 @@ export default function TaskDashboard() {
       }
     };
 
-    // コンポーネントがマウントされたらロックをリクエスト
     requestWakeLock();
 
-    // コンポーネントがアンマウントされるとき、またはブラウザが非アクティブになったらロックを解除
     return () => {
       if (wakeLock) {
         wakeLock.release();
@@ -122,17 +145,17 @@ export default function TaskDashboard() {
         console.log('Wake Lock 解除: 画面スリープ抑制を終了');
       }
     };
-  }, []); // 初回のみ実行
+  }, []);
 
-  // ★ 完了処理（ローディング表示とNotion API連携）
+  // --- 5. タスク処理関数 ---
+
+  // タスク完了処理
   const handleComplete = async (id: string) => {
-    // 既に他のタスクを処理中の場合や、このタスク自体が処理中の場合は何もしない
     if (processingId) return;
 
-    setProcessingId(id); // 処理開始: このタスクIDをセット
+    setProcessingId(id);
 
     try {
-      // Notion APIへ完了リクエストを送信
       const res = await fetch('/api/tasks/complete', {
         method: 'POST',
         headers: {
@@ -145,16 +168,16 @@ export default function TaskDashboard() {
         throw new Error('Notion側でのタスク完了に失敗しました');
       }
 
-      // 成功した場合のみ、フロントエンドのリストから削除
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       console.error(e);
       alert('タスクの完了処理に失敗しました。コンソールを確認してください。');
-      // 失敗した場合はリストから削除しない
     } finally {
-      setProcessingId(null); // 処理終了
+      setProcessingId(null);
     }
   };
+
+  // タスク更新処理（日付/ステータス）
   const handleUpdateTask = async (
     id: string,
     updates: { status?: string; date?: string | null }
@@ -174,8 +197,7 @@ export default function TaskDashboard() {
         throw new Error('タスクの更新に失敗しました');
       }
 
-      // 更新成功後、タスクリストを再取得してUIをリフレッシュ
-      setPopupTask(null); // ポップアップを閉じる
+      setPopupTask(null);
       await fetchTasks();
     } catch (e) {
       console.error(e);
@@ -184,12 +206,14 @@ export default function TaskDashboard() {
       setProcessingId(null);
     }
   };
-  // ★ フィルタリングロジック
+
+  // --- 6. タスクフィルタリングロジック ---
+
+  // フィルタリング（All/Work Only）
   const filterTasksByCat = (tasksToFilter: Task[]) => {
     if (filter === 'All') {
       return tasksToFilter;
     }
-    // 'Work' フィルタの場合: cat が 'Work' のタスクのみ返す
     return tasksToFilter.filter((task) => task.cat === 'Work');
   };
 
@@ -205,13 +229,13 @@ export default function TaskDashboard() {
   // Inboxタスク（フィルタ適用済）
   const getInboxTasks = () => {
     const inboxTasks = tasks.filter((task) => {
-      if (!task.date) return true; // 日付未設定
-      return isBefore(parseISO(task.date), startOfCurrentWeek); // 今週の月曜より前
+      if (!task.date) return true;
+      return isBefore(parseISO(task.date), startOfCurrentWeek);
     });
     return filterTasksByCat(inboxTasks);
   };
 
-  // --- UIコンポーネント (カード) ---
+  // --- 7. UIコンポーネント (カード) ---
   const TaskCard = ({ task }: { task: Task }) => {
     const colors: any = {
       blue: {
@@ -241,9 +265,8 @@ export default function TaskDashboard() {
       >
         {/* タイトルとURLリンク */}
         <div className="flex justify-between items-start mb-1">
-          {/* タイトル */}
+          {/* タイトル (カラードットを統合) */}
           <div className="font-bold text-base leading-tight pr-4 flex items-center">
-            {/* STATE_COLORS[task.state] に基づいて色が適用される */}
             <span
               className={`w-2.5 h-2.5 rounded-full mr-2 flex-none ${
                 STATE_COLORS[task.state] || 'bg-neutral-500'
@@ -256,7 +279,7 @@ export default function TaskDashboard() {
 
           {/* URLリンクボタン群 */}
           <div className="flex gap-2 items-center flex-none">
-            {/* URLリンクボタン (Notionアプリで開く)  */}
+            {/* URLリンクボタン (Notionアプリで開く) */}
             <a
               href={notionAppUrl}
               target="_blank"
@@ -282,9 +305,9 @@ export default function TaskDashboard() {
           </div>
         </div>
 
-        {/* Status, Badges, ポップアップボタン（格上げ）を同一行に配置 */}
+        {/* Badges, ポップアップボタン（格上げ）を同一行に配置 */}
         <div className="flex justify-between items-center mt-2">
-          {/* Status & Badges (左側) */}
+          {/* Badges */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
             <div className="flex gap-1 flex-wrap">
               {/* Cat Badge */}
@@ -305,7 +328,7 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* ポップアップボタン */}
+          {/* ポップアップボタン (詳細・編集) */}
           <button
             onClick={() => setPopupTask(task)}
             className={`flex-none text-xs py-1 px-3 rounded transition font-bold border 
@@ -318,6 +341,9 @@ export default function TaskDashboard() {
       </div>
     );
   };
+
+  // --- 8. メインレンダリング ---
+
   if (loading)
     return (
       <div className="h-screen bg-black text-white flex items-center justify-center">
@@ -327,7 +353,7 @@ export default function TaskDashboard() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#171717] text-white font-sans selection:bg-blue-500 selection:text-white">
-      {/* Header (トグルと日付を統合) */}
+      {/* Header */}
       <header className="flex-none p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/95 z-20">
         <div className="flex items-center gap-4">
           <div>
@@ -343,33 +369,10 @@ export default function TaskDashboard() {
             </div>
           </div>
 
-          {/* ★ トグルボタンをHeader内に配置 */}
-          <div className="hidden sm:flex space-x-3 rounded-full bg-neutral-800 p-1">
-            <button
-              onClick={() => setFilter('All')}
-              className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
-                filter === 'All'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-transparent text-neutral-400 hover:text-white'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('Work')}
-              className={`px-4 py-1.5 rounded-full font-semibold text-sm transition-colors ${
-                filter === 'Work'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-transparent text-neutral-400 hover:text-white'
-              }`}
-            >
-              Work Only
-            </button>
-          </div>
+          {/* Todayボタン */}
           <button
             onClick={() => {
               if (todayRef.current) {
-                // スクロール可能な親要素を取得し、そこにスクロール処理を適用
                 const parent = todayRef.current.closest('main');
                 if (parent) {
                   parent.scrollLeft =
@@ -380,6 +383,28 @@ export default function TaskDashboard() {
             className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-full text-sm font-semibold transition"
           >
             Today
+          </button>
+
+          {/* 設定ボタン */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-white bg-neutral-600 hover:bg-neutral-700 p-2 rounded-full transition"
+            title="設定"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.562.342 1.22.565 1.884.661.173.025.346.045.52.06"
+              />
+            </svg>
           </button>
         </div>
 
@@ -417,13 +442,27 @@ export default function TaskDashboard() {
           {/* 2-8. Week Days Columns */}
           {weekDays.map((day) => {
             const isToday = isSameDay(day, today);
-            const dayTasks = getTasksForDay(day);
+
+            // ★ 幅縮小のロジック
+            const isPast = day.getTime() < today.getTime();
+            const allTasksForDay = tasks.filter((task) => {
+              if (!task.date) return false;
+              return isSameDay(parseISO(task.date), day);
+            });
+            const dayTasks = filterTasksByCat(allTasksForDay);
+            const hasNoTasks = dayTasks.length === 0;
+
+            let widthClass = 'w-full md:w-72';
+            if (isPast && hasNoTasks && isCompactPast) {
+              widthClass = 'w-1/2 md:w-36';
+            }
+            // ★ ここまで幅縮小のロジック
 
             return (
               <div
                 key={day.toISOString()}
                 ref={isToday ? todayRef : null}
-                className={`flex-none w-full md:w-72 flex flex-col h-auto md:h-full relative ${
+                className={`flex-none ${widthClass} flex flex-col h-auto md:h-full relative ${
                   isToday ? 'bg-blue-900/10' : ''
                 }`}
               >
@@ -469,7 +508,7 @@ export default function TaskDashboard() {
         </div>
       </main>
 
-      {/* ★ ポップアップモーダルの実装（詳細表示） */}
+      {/* ★ 9. ポップアップモーダル（詳細表示と編集フォーム） */}
       {popupTask && (
         <div
           className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
@@ -491,31 +530,31 @@ export default function TaskDashboard() {
                   ステータス:
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {/* INBOX, Waiting, Going (進行形ステータス) */}
-                  {['INBOX', 'Waiting', 'Going'].map((status) => (
+                  {/* INBOX, Waiting, Going, Wrapper (進行形ステータス) */}
+                  {['INBOX', 'Wrapper', 'Waiting', 'Going'].map((status) => (
                     <button
                       key={status}
                       type="button"
                       disabled={processingId === popupTask.id}
                       onClick={() => handleUpdateTask(popupTask.id, { status })}
                       className={`px-3 py-1 text-sm rounded transition font-semibold 
-                                    ${
-                                      popupTask.state === status
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
-                                    }
-                                    ${
-                                      processingId === popupTask.id
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : ''
-                                    }
-                                `}
+                        ${
+                          popupTask.state === status
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        }
+                        ${
+                          processingId === popupTask.id
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
+                        }
+                      `}
                     >
                       {status}
                     </button>
                   ))}
 
-                  {/* ★ ここに区切り線を追加 ★ */}
+                  {/* 区切り線 */}
                   <div className="w-px h-6 bg-neutral-600 self-center mx-1" />
 
                   {/* Done ボタン (完了ステータス) */}
@@ -527,17 +566,17 @@ export default function TaskDashboard() {
                       setPopupTask(null);
                     }}
                     className={`px-3 py-1 text-sm rounded font-semibold bg-green-700 text-white hover:bg-green-600 
-                                ${
-                                  processingId === popupTask.id
-                                    ? 'opacity-50 cursor-not-allowed'
-                                    : ''
-                                }
-                                ${
-                                  popupTask.state === 'Done'
-                                    ? 'ring-2 ring-green-400'
-                                    : ''
-                                }  // Doneがアクティブな場合も視覚的に区別
-                            `}
+                      ${
+                        processingId === popupTask.id
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                      }
+                      ${
+                        popupTask.state === 'Done'
+                          ? 'ring-2 ring-green-400'
+                          : ''
+                      } 
+                    `}
                   >
                     Done
                   </button>
@@ -573,6 +612,7 @@ export default function TaskDashboard() {
                 </button>
               </div>
             </form>
+
             {/* 詳細情報 */}
             <div className="mt-6 pt-4 border-t border-neutral-700/50 space-y-2 text-neutral-400 text-sm">
               <p>
@@ -586,6 +626,80 @@ export default function TaskDashboard() {
             <button
               onClick={() => setPopupTask(null)}
               className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ★ 10. 設定モーダル */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="bg-neutral-800 p-8 rounded-xl shadow-2xl max-w-lg w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-white mb-6 border-b border-neutral-700 pb-3">
+              ダッシュボード設定
+            </h2>
+
+            <div className="space-y-6">
+              {/* 1. All / Work Only トグル */}
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="filter-toggle"
+                  className="text-neutral-300 text-lg font-medium"
+                >
+                  表示タスクのフィルタ
+                </label>
+                <button
+                  onClick={() => setFilter(filter === 'All' ? 'Work' : 'All')}
+                  className={`px-4 py-2 rounded-full font-bold transition text-sm
+                        ${
+                          filter === 'All'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-green-600 text-white'
+                        }
+                    `}
+                >
+                  {filter === 'All' ? 'All' : 'Work Only'}
+                </button>
+              </div>
+
+              {/* 2. 過去日の幅縮小トグル */}
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="compact-past-toggle"
+                  className="text-neutral-300 text-lg font-medium"
+                >
+                  過去日のタスク非表示時の幅縮小
+                </label>
+                <button
+                  onClick={() => setIsCompactPast(!isCompactPast)}
+                  className={`px-4 py-2 rounded-full font-bold transition text-sm
+                        ${
+                          isCompactPast
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-neutral-600 text-neutral-300'
+                        }
+                    `}
+                >
+                  {isCompactPast ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              <p className="text-xs text-neutral-500 pt-2">
+                ※ 幅縮小は、過去の日付でタスクが一件もない場合に適用されます。
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowSettings(false)}
+              className="mt-8 px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded font-semibold"
             >
               閉じる
             </button>
