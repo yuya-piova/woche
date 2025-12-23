@@ -6,7 +6,7 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 // POSTリクエストハンドラー
 export async function POST(request: Request) {
   try {
-    const { id, status, date } = await request.json();
+    const { id, title, status, date } = await request.json();
 
     if (!id) {
       return NextResponse.json(
@@ -17,7 +17,20 @@ export async function POST(request: Request) {
 
     const properties: any = {};
 
-    // ステータス変更の処理
+    // 1. タイトル（名前）更新の処理
+    if (title !== undefined) {
+      properties['Name'] = {
+        title: [
+          {
+            text: {
+              content: title,
+            },
+          },
+        ],
+      };
+    }
+
+    // 2. ステータス変更の処理
     if (status) {
       properties['State'] = {
         status: {
@@ -26,9 +39,9 @@ export async function POST(request: Request) {
       };
     }
 
-    // 日付変更の処理
-    if (date) {
-      if (date === 'null') {
+    // 3. 日付変更の処理
+    if (date !== undefined) {
+      if (date === 'null' || date === null || date === '') {
         // 日付をクリアする場合
         properties['Date'] = { date: null };
       } else {
@@ -40,7 +53,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ページを更新する
+    // 4. Notionのページを更新
     if (Object.keys(properties).length > 0) {
       await notion.pages.update({
         page_id: id,
@@ -49,10 +62,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ message: 'Task updated successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating task:', error);
+    // 詳細なエラー内容を返却するように変更
     return NextResponse.json(
-      { error: 'Failed to update task on Notion' },
+      { error: error.message || 'Failed to update task on Notion' },
       { status: 500 }
     );
   }
