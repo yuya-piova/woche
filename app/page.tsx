@@ -391,7 +391,7 @@ export default function TaskDashboard() {
               >
                 <div className="p-3 border-b border-red-900/30 bg-red-900/10">
                   <h3 className="font-bold text-red-400 flex justify-between items-center text-sm">
-                    Inbox / Overdue
+                    Overdue
                     <span className="text-[10px] bg-red-900 text-red-200 px-2 py-0.5 rounded-full">
                       {inboxTasks.length}
                     </span>
