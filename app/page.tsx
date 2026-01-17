@@ -92,7 +92,11 @@ export default function TaskDashboard() {
 
     syncSettings(); // 初回読み込み
     window.addEventListener('settings-updated', syncSettings);
-    return () => window.removeEventListener('settings-updated', syncSettings);
+    window.addEventListener('storage', syncSettings);
+    return () => {
+      window.removeEventListener('settings-updated', syncSettings);
+      window.removeEventListener('storage', syncSettings);
+    };
   }, []);
 
   // スリープ抑制
