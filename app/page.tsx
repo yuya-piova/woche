@@ -9,8 +9,9 @@ import {
   isBefore,
 } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import TaskModal from '@/components/TaskModal'; // 追加
-import type { Task } from '@/components/TaskModal'; // 追加
+import TaskModal from '@/components/TaskModal';
+import type { Task } from '@/components/TaskModal';
+import { useTasks } from '@/hooks/useTasks';
 
 type TaskFilter = 'All' | 'Work';
 type PopupState = Task | null;
@@ -42,8 +43,6 @@ export default function TaskDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
 
-  // ★ editName, editDate, editStatus は TaskModal 内で管理するため削除しました
-
   const [filter, setFilter] = useState<TaskFilter>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('wocheFilter') as TaskFilter) || 'All';
@@ -60,7 +59,6 @@ export default function TaskDashboard() {
   });
 
   const [popupTask, setPopupTask] = useState<PopupState>(null);
-  const [processingId, setProcessingId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const todayRef = useRef<HTMLDivElement>(null);
@@ -69,6 +67,11 @@ export default function TaskDashboard() {
   const startOfCurrentWeek = startOfWeek(today, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) =>
     addDays(startOfCurrentWeek, i),
+  );
+
+  const { handleSaveTask, handleComplete, processingId } = useTasks(
+    tasks,
+    fetchTasks,
   );
 
   // --- 3. データ取得 ---
@@ -144,64 +147,7 @@ export default function TaskDashboard() {
     };
   }, []);
 
-  // --- 5. タスク処理関数 ---
-
-  // 引数を受け取るように変更
-  const handleSaveTask = async (
-    name: string,
-    date: string | null,
-    status: string,
-  ) => {
-    if (!popupTask || processingId) return;
-    setProcessingId(popupTask.id);
-
-    const isNew = popupTask.id === 'new';
-    const apiUrl = isNew ? '/api/create' : '/api/update-task';
-    const payload = isNew
-      ? { name, date }
-      : {
-          id: popupTask.id,
-          name,
-          date,
-          status,
-        };
-
-    try {
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('保存に失敗しました');
-      setPopupTask(null);
-      await fetchTasks();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'エラーが発生しました');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleComplete = async (id: string) => {
-    if (processingId) return;
-    setProcessingId(id);
-    try {
-      const res = await fetch('/api/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error('完了処理に失敗しました');
-      setTasks((prev) => prev.filter((t) => t.id !== id));
-      await fetchTasks(); // 全体整合性のために再取得
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // --- 6. フィルタリングロジック ---
+  // --- 5. フィルタリングロジック ---
   const filterTasksByCat = (tasksToFilter: Task[]) => {
     if (filter === 'All') return tasksToFilter;
     return tasksToFilter.filter((task) => task.cat === 'Work');
@@ -223,7 +169,7 @@ export default function TaskDashboard() {
     return filterTasksByCat(inboxTasks);
   };
 
-  // --- 7. TaskCard ---
+  // --- 6. TaskCard ---
   const TaskCard = ({ task }: { task: Task }) => {
     const colors: any = {
       blue: {
@@ -417,7 +363,9 @@ export default function TaskDashboard() {
         <TaskModal
           task={popupTask}
           onClose={() => setPopupTask(null)}
-          onSave={handleSaveTask}
+          onSave={(name, date, status) =>
+            handleSaveTask(popupTask, name, date, status)
+          }
           onComplete={handleComplete}
           processingId={processingId}
         />
