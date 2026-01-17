@@ -1,7 +1,6 @@
 'use client';
 
 import Sidebar from './Sidebar';
-import { usePathname } from 'next/navigation';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { useState, useEffect } from 'react';
 
@@ -39,33 +38,32 @@ export default function ClientLayout({
         <Sidebar />
       </div>
 
-      {/* メインエリア（ヘッダー + コンテンツ） */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-16 transition-all duration-300">
-        {/* ★ 共通ヘッダー：ここに移設 ★ */}
-        <header className="flex-none p-4 border-b border-neutral-800 flex flex-wrap gap-y-4 justify-between items-center bg-neutral-900/95 z-20">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest">
-                My Tasks
-              </h1>
-              <div className="text-xl font-bold flex items-center gap-2">
-                <span>LaunchPad</span>
-                <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-1 rounded">
-                  {format(startOfCurrentWeek, 'MMM d')} -{' '}
-                  {format(addDays(startOfCurrentWeek, 6), 'MMM d')}
-                </span>
-              </div>
+      {/* メインエリア */}
+      <div className="flex-1 flex flex-col min-w-0 md:ml-16 transition-all duration-300 relative">
+        {/* 共通ヘッダー */}
+        <header className="flex-none p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/95 z-20">
+          <div>
+            <h1 className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest">
+              My Tasks
+            </h1>
+            <div className="text-xl font-bold flex items-center gap-2">
+              <span>LaunchPad</span>
+              <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-1 rounded">
+                {format(startOfCurrentWeek, 'MMM d')} -{' '}
+                {format(addDays(startOfCurrentWeek, 6), 'MMM d')}
+              </span>
             </div>
-            {/* ページ独自の操作ボタンが必要な場合は後ほど「Portal」等で対応可能ですが、
-                まずはシンプルな共通ヘッダーにします */}
           </div>
-          <div className="text-2xl font-black tracking-tighter leading-none">
-            {currentTime}
+
+          <div className="flex items-center gap-4">
+            <div className="text-2xl font-black tracking-tighter leading-none">
+              {currentTime}
+            </div>
           </div>
         </header>
 
         {/* ページの中身 */}
-        <main className="flex-1 overflow-hidden relative">{children}</main>
+        <main className="flex-1 overflow-hidden">{children}</main>
       </div>
     </div>
   );

@@ -419,6 +419,27 @@ export default function TaskDashboard() {
         </div>
       </main>
 
+      {/* --- 右下のFAB (Floating Action Button) --- */}
+      <button
+        onClick={() => setPopupTask(emptyTask)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-110 active:scale-95 z-50 md:bottom-10 md:right-10"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth="3"
+          stroke="currentColor"
+          className="w-7 h-7"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
+        </svg>
+      </button>
+
       {/* Edit/Create Popup */}
       {popupTask && (
         <div
