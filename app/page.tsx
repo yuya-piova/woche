@@ -52,7 +52,7 @@ export default function TaskDashboard() {
   const [currentTime, setCurrentTime] = useState('');
 
   // 編集用の一時ステート
-  const [editTitle, setEditTitle] = useState('');
+  const [editName, setEditName] = useState('');
   const [editDate, setEditDate] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState('');
 
@@ -132,7 +132,7 @@ export default function TaskDashboard() {
   // モーダルが開いた時に編集用ステートに値をセット
   useEffect(() => {
     if (popupTask) {
-      setEditTitle(popupTask.id === 'new' ? '' : popupTask.name);
+      setEditName(popupTask.id === 'new' ? '' : popupTask.name);
       setEditDate(popupTask.date);
       setEditStatus(popupTask.state);
     }
@@ -179,10 +179,10 @@ export default function TaskDashboard() {
     const isNew = popupTask.id === 'new';
     const apiUrl = isNew ? '/api/create' : '/api/update-task';
     const payload = isNew
-      ? { title: editTitle, date: editDate }
+      ? { name: editName, date: editDate }
       : {
           id: popupTask.id,
-          title: editTitle,
+          name: editName,
           date: editDate,
           status: editStatus,
         };
@@ -464,8 +464,8 @@ export default function TaskDashboard() {
                 </label>
                 <input
                   type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
                   className="bg-neutral-700 text-white p-3 rounded-xl text-lg font-bold outline-none border-2 border-transparent focus:border-blue-500"
                   placeholder="タスクを入力..."
                 />
@@ -528,7 +528,7 @@ export default function TaskDashboard() {
               </button>
               <button
                 onClick={handleSaveTask}
-                disabled={!editTitle || processingId !== null}
+                disabled={!editName || processingId !== null}
                 className="flex-[2] bg-blue-600 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/20 disabled:opacity-50"
               >
                 {processingId ? 'Saving...' : 'Save Task'}

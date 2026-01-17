@@ -6,12 +6,12 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const databaseId = process.env.NOTION_DATABASE_ID!;
 
 export async function POST(req: Request) {
-  const { title, date } = await req.json();
+  const { name, date } = await req.json();
   try {
     // プロパティを構築
     const properties: any = {
       Name: {
-        title: [{ text: { content: title || '新規タスク' } }],
+        title: [{ text: { content: name || '新規タスク' } }],
       },
       State: {
         status: { name: 'INBOX' },
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         error: error.message,
         detail: error.body ? JSON.parse(error.body).message : 'No detail',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
