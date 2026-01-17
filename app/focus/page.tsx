@@ -7,19 +7,22 @@ import {
   differenceInDays,
   startOfYear,
   endOfYear,
+  parseISO,
 } from 'date-fns';
-import { Target, Calendar, Hash, Activity, ChevronRight } from 'lucide-react'; // ★ アイコンのインポート漏れを確認
-import TaskModal, { Task } from '@/components/TaskModal';
-import { useTasks } from '@/hooks/useTasks';
+import { Target, Calendar, Hash, Activity } from 'lucide-react';
+
+type Task = {
+  id: string;
+  name: string;
+  cat: string;
+  summary: string;
+  state: string;
+};
 
 export default function FocusPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // カスタムフックを使用（初期値は空配列）
-  const { tasks, setTasks, updateTask, deleteTask } = useTasks([]);
-
-  // --- 今日という日のデータ計算 ---
   const today = new Date();
   const yearStart = startOfYear(today);
   const yearEnd = endOfYear(today);
@@ -28,22 +31,16 @@ export default function FocusPage() {
   const yearProgress = ((passedDays / totalDays) * 100).toFixed(1);
   const weekNumber = getWeek(today, { weekStartsOn: 1 });
 
-  // データ取得
   useEffect(() => {
     const todayStr = format(today, 'yyyy-MM-dd');
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch(`/api/tasks?date=${todayStr}`);
-        const data = await res.json();
+    fetch(`/api/tasks?date=${todayStr}`)
+      .then((res) => res.json())
+      .then((data) => {
         setTasks(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Failed to fetch tasks:', error);
-      } finally {
         setLoading(false);
-      }
-    };
-    fetchTasks();
-  }, [setTasks]);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="h-full bg-[#171717] flex flex-col md:flex-row overflow-hidden no-scrollbar">
@@ -132,30 +129,20 @@ export default function FocusPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => setSelectedTask(task)}
-                  className="group p-6 bg-neutral-900/40 rounded-3xl border border-neutral-800/50 hover:border-blue-500/30 transition-all duration-300 cursor-pointer"
+                  className="group p-6 bg-neutral-900/40 rounded-3xl border border-neutral-800/50 hover:border-blue-500/30 transition-all duration-300"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                        task.theme === 'blue'
-                          ? 'bg-blue-600/10 text-blue-500 border-blue-600/20'
-                          : task.theme === 'green'
-                            ? 'bg-green-600/10 text-green-500 border-green-600/20'
-                            : 'bg-neutral-800 text-neutral-400 border-neutral-700'
-                      }`}
-                    >
+                    <span className="px-3 py-1 rounded-full bg-blue-600/10 text-blue-500 text-[10px] font-black uppercase tracking-widest border border-blue-600/20">
                       {task.cat || 'No Cat'}
                     </span>
-                    <ChevronRight
-                      size={16}
-                      className="text-neutral-700 group-hover:text-blue-500 transition-colors"
-                    />
+                    <span className="text-[10px] font-bold text-neutral-600 bg-neutral-800/50 px-2 py-1 rounded">
+                      {task.state}
+                    </span>
                   </div>
                   <h3 className="text-xl font-bold text-neutral-100 mb-3 group-hover:text-blue-400 transition-colors">
                     {task.name}
                   </h3>
-                  <p className="text-neutral-500 leading-relaxed text-sm line-clamp-2">
+                  <p className="text-neutral-500 leading-relaxed text-sm">
                     {task.summary ||
                       'No summary available for this focus task.'}
                   </p>
@@ -165,16 +152,6 @@ export default function FocusPage() {
           )}
         </div>
       </div>
-
-      {/* 共通モーダル */}
-      {selectedTask && (
-        <TaskModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onUpdate={(data) => updateTask(selectedTask.id, data)}
-          onDelete={deleteTask}
-        />
-      )}
     </div>
   );
 }

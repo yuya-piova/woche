@@ -10,13 +10,14 @@ import {
   ExternalLink,
   Check,
   Trash2,
+  Moon,
+  Github,
 } from 'lucide-react';
-import SettingsModal from '@/components/SettingsModal';
 
-// --- 元の型定義 ---
+// --- 型定義 ---
 type Task = {
   id: string;
-  name: string; // ここはリファクタ後の 'name' を維持（APIと合わせるため）
+  name: string;
   date: string | null;
   state: string;
   cat: string;
@@ -26,6 +27,63 @@ type Task = {
   summary: string;
 };
 
+// --- 設定モーダル（エラー回避のためファイル内に定義） ---
+function SettingsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[200] animate-in fade-in duration-200">
+      <div className="bg-[#1A1A1A] border border-white/10 w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="p-8 space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black flex items-center gap-2">
+              <SettingsIcon size={20} className="text-blue-500" />
+              Settings
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-neutral-500 hover:text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 bg-white/5 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Moon size={18} className="text-neutral-400" />
+                <span className="text-sm font-bold text-neutral-200">
+                  Dark Mode
+                </span>
+              </div>
+              <div className="w-10 h-5 bg-blue-600 rounded-full flex items-center px-1">
+                <div className="w-3 h-3 bg-white rounded-full ml-auto" />
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/5 rounded-2xl flex items-center justify-between opacity-50">
+              <div className="flex items-center gap-3">
+                <Github size={18} className="text-neutral-400" />
+                <span className="text-sm font-bold text-neutral-200">
+                  GitHub Sync
+                </span>
+              </div>
+              <span className="text-[10px] font-black bg-neutral-800 px-2 py-1 rounded text-neutral-500">
+                SOON
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -33,7 +91,6 @@ export default function Dashboard() {
   const [editName, setEditName] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // データの取得
   const fetchTasks = async () => {
     try {
       const res = await fetch('/api/tasks');
@@ -54,13 +111,11 @@ export default function Dashboard() {
       window.removeEventListener('open-settings', handleOpenSettings);
   }, []);
 
-  // モーダルを開く処理
   const openModal = (task: Task) => {
     setSelectedTask(task);
     setEditName(task.name);
   };
 
-  // タスクの保存処理 (前のロジックを復元)
   const handleSaveTask = async () => {
     if (!selectedTask) return;
     try {
@@ -82,7 +137,6 @@ export default function Dashboard() {
     }
   };
 
-  // タスクの削除処理
   const handleDeleteTask = async (id: string) => {
     if (!confirm('このタスクを削除しますか？')) return;
     try {
@@ -98,7 +152,6 @@ export default function Dashboard() {
     }
   };
 
-  // クイック追加
   const handleQuickAdd = async (date: string | null) => {
     const name = window.prompt('新しいタスク名を入力してください');
     if (!name) return;
@@ -141,7 +194,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* 曜日別 */}
+        {/* Weekly columns */}
         {weekDays.map((day) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayTasks = tasks.filter((t) => t.date === dateStr);
@@ -184,7 +237,7 @@ export default function Dashboard() {
                 ))}
                 <button
                   onClick={() => handleQuickAdd(dateStr)}
-                  className="w-full py-3 border-2 border-dashed border-neutral-800/30 rounded-[20px] text-neutral-800 hover:border-neutral-700 hover:text-neutral-600 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full py-3 border-2 border-dashed border-neutral-800/30 rounded-[24px] text-neutral-800 hover:border-neutral-700 hover:text-neutral-600 transition-all flex items-center justify-center gap-2 group"
                 >
                   <Plus size={14} />
                   <span className="text-[10px] font-black uppercase tracking-widest">
@@ -197,7 +250,7 @@ export default function Dashboard() {
         })}
       </main>
 
-      {/* --- 以前の詳細モーダルを完全復元 --- */}
+      {/* 詳細モーダル */}
       {selectedTask && (
         <div
           className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200"
@@ -235,7 +288,7 @@ export default function Dashboard() {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-transparent text-2xl font-bold text-white focus:outline-none focus:text-blue-400 transition-colors"
+                  className="w-full bg-transparent text-2xl font-bold text-white focus:outline-none focus:text-blue-400 transition-colors px-1"
                 />
               </div>
 
@@ -243,7 +296,7 @@ export default function Dashboard() {
                 <label className="text-[10px] font-black text-neutral-600 uppercase tracking-widest ml-1">
                   Summary
                 </label>
-                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 min-h-[80px]">
+                <div className="bg-white/[0.03] border border-white/5 rounded-[20px] p-5 min-h-[100px]">
                   <p className="text-neutral-400 text-sm leading-relaxed">
                     {selectedTask.summary || 'No summary available.'}
                   </p>
@@ -263,7 +316,7 @@ export default function Dashboard() {
                   </a>
                   <button
                     onClick={handleSaveTask}
-                    className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+                    className="flex-[2] bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
                   >
                     <Check size={18} />
                     <span>Save Changes</span>
@@ -281,12 +334,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* 設定モーダル */}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
 
-// デザイン復元版 TaskCard
+// リッチな質感の TaskCard コンポーネント
 function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   return (
     <div
@@ -319,7 +373,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
           {task.name}
         </h3>
         {task.summary && (
-          <p className="mt-2 text-[10px] text-neutral-600 line-clamp-1 italic italic">
+          <p className="mt-2 text-[10px] text-neutral-600 line-clamp-1 italic group-hover:text-neutral-500 transition-colors">
             {task.summary}
           </p>
         )}
