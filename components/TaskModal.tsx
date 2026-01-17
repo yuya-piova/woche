@@ -12,6 +12,7 @@ export type Task = {
   subCats: string[];
   theme: string;
   url: string;
+  summary: string;
 };
 
 interface TaskModalProps {
