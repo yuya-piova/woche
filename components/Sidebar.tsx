@@ -38,12 +38,13 @@ export default function Sidebar({
         />
       )}
 
-      {/* サイドバー本体: group/sidebar を追加し、hover:w-48 で広がるように設定 */}
+      {/* サイドバー本体 */}
       <aside
         className={`
         fixed left-0 z-[70] h-full bg-[#1A1A1A] border-r border-neutral-800
         flex flex-col py-6 transition-all duration-300 ease-in-out group/sidebar
-        ${isOpenMobile ? 'w-20' : 'w-0 md:w-16 md:hover:w-48'}
+        /* モバイル: isOpenMobile時に幅64(文字が見える幅) / デスクトップ: 通常16、ホバーで48 */
+        ${isOpenMobile ? 'w-64' : 'w-0 md:w-16 md:hover:w-48'}
         ${!isOpenMobile && 'overflow-hidden md:overflow-visible'}
       `}
       >
@@ -52,7 +53,13 @@ export default function Sidebar({
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-900/20">
             <span className="text-white font-black text-xl">G</span>
           </div>
-          <span className="ml-4 font-black text-xl text-white opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+          <span
+            className={`
+            ml-4 font-black text-xl text-white transition-opacity duration-300 whitespace-nowrap
+            /* モバイル: 常に表示 / デスクトップ: ホバー時のみ */
+            ${isOpenMobile ? 'opacity-100' : 'opacity-0 md:group-hover/sidebar:opacity-100'}
+          `}
+          >
             Gleis
           </span>
         </div>
@@ -81,7 +88,8 @@ export default function Sidebar({
                 <span
                   className={`
                   ml-2 font-bold text-sm transition-all duration-300 whitespace-nowrap
-                  opacity-0 group-hover/sidebar:opacity-100
+                  /* モバイル: 常に表示 / デスクトップ: ホバー時のみ */
+                  ${isOpenMobile ? 'opacity-100' : 'opacity-0 md:group-hover/sidebar:opacity-100'}
                 `}
                 >
                   {item.name}
@@ -94,13 +102,21 @@ export default function Sidebar({
         {/* 下部：設定ボタン */}
         <div className="px-2 w-full">
           <button
-            onClick={openSettings}
+            onClick={() => {
+              openSettings();
+              setIsOpenMobile(false);
+            }}
             className="flex items-center w-full h-12 text-neutral-600 hover:text-white hover:bg-neutral-800 rounded-2xl transition-all overflow-hidden"
           >
             <div className="w-12 h-12 shrink-0 flex items-center justify-center">
               <SettingsIcon size={20} />
             </div>
-            <span className="ml-2 font-bold text-sm opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+            <span
+              className={`
+              ml-2 font-bold text-sm transition-opacity duration-300 whitespace-nowrap
+              ${isOpenMobile ? 'opacity-100' : 'opacity-0 md:group-hover/sidebar:opacity-100'}
+            `}
+            >
               Settings
             </span>
           </button>
