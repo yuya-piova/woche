@@ -116,6 +116,13 @@ export default function TaskDashboard() {
   }, []);
 
   useEffect(() => {
+    const handleOpenSettings = () => setShowSettings(true);
+    window.addEventListener('open-settings', handleOpenSettings);
+    return () =>
+      window.removeEventListener('open-settings', handleOpenSettings);
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('wocheFilter', filter);
   }, [filter]);
   useEffect(() => {
@@ -419,7 +426,7 @@ export default function TaskDashboard() {
         </div>
       </main>
 
-      {/* --- 右下のFAB (Floating Action Button) --- */}
+      {/* --- FAB (Floating Action Button) --- */}
       <button
         onClick={() => setPopupTask(emptyTask)}
         className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-110 active:scale-95 z-50 md:bottom-10 md:right-10"
