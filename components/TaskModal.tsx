@@ -42,6 +42,19 @@ export default function TaskModal({
     setEditStatus(task.state);
   }, [task]);
 
+  const handleSaveClick = async () => {
+    if (!editName || processingId !== null) return;
+
+    try {
+      // 1. 保存を実行（app/page.tsx または app/focus/page.tsx の handleSaveTask が呼ばれる）
+      await onSave(editName, editDate, editStatus);
+      // 2. 完了したらモーダルを閉じる
+      onClose();
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
@@ -125,7 +138,7 @@ export default function TaskModal({
             Cancel
           </button>
           <button
-            onClick={() => onSave(editName, editDate, editStatus)}
+            onClick={() => handleSaveClick}
             disabled={!editName || processingId !== null}
             className="flex-[2] bg-blue-600 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/20 disabled:opacity-50 text-white"
           >
