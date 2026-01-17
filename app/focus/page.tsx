@@ -7,22 +7,43 @@ import {
   differenceInDays,
   startOfYear,
   endOfYear,
-  parseISO,
 } from 'date-fns';
-import { Target, Calendar, Hash, Activity } from 'lucide-react';
-
-type Task = {
-  id: string;
-  name: string;
-  cat: string;
-  summary: string;
-  state: string;
-};
+import { Target, Calendar, Hash, Activity, ChevronRight } from 'lucide-react';
+import TaskModal from '@/components/TaskModal'; // 共通モーダルをインポート
+import type { Task } from '@/components/TaskModal'; // 型をインポート
+import { useTasks } from '@/hooks/useTasks'; // 共通ロジックをインポート
 
 export default function FocusPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // --- データ取得 ---
+  const fetchTasks = async () => {
+    try {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const res = await fetch(`/api/tasks?date=${todayStr}`);
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 共通ロジックの使用 ---
+  const { handleSaveTask, handleComplete, processingId } = useTasks(
+    tasks,
+    fetchTasks,
+  );
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // --- 統計用データ計算 ---
   const today = new Date();
   const yearStart = startOfYear(today);
   const yearEnd = endOfYear(today);
@@ -30,17 +51,6 @@ export default function FocusPage() {
   const passedDays = differenceInDays(today, yearStart) + 1;
   const yearProgress = ((passedDays / totalDays) * 100).toFixed(1);
   const weekNumber = getWeek(today, { weekStartsOn: 1 });
-
-  useEffect(() => {
-    const todayStr = format(today, 'yyyy-MM-dd');
-    fetch(`/api/tasks?date=${todayStr}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setTasks(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
 
   return (
     <div className="h-full bg-[#171717] flex flex-col md:flex-row overflow-hidden no-scrollbar">
@@ -99,7 +109,7 @@ export default function FocusPage() {
 
       {/* 右側：タスク詳細エリア */}
       <div className="flex-1 p-8 md:p-12 overflow-y-auto no-scrollbar">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500">
               <Target size={24} />
@@ -129,20 +139,30 @@ export default function FocusPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="group p-6 bg-neutral-900/40 rounded-3xl border border-neutral-800/50 hover:border-blue-500/30 transition-all duration-300"
+                  onClick={() => setSelectedTask(task)} // クリックで選択
+                  className="group p-6 bg-neutral-900/40 rounded-3xl border border-neutral-800/50 hover:border-blue-500/30 transition-all duration-300 cursor-pointer shadow-xl"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-blue-600/10 text-blue-500 text-[10px] font-black uppercase tracking-widest border border-blue-600/20">
+                    <span
+                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        task.theme === 'blue'
+                          ? 'bg-blue-600/10 text-blue-500 border-blue-600/20'
+                          : task.theme === 'green'
+                            ? 'bg-green-600/10 text-green-500 border-green-600/20'
+                            : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                      }`}
+                    >
                       {task.cat || 'No Cat'}
                     </span>
-                    <span className="text-[10px] font-bold text-neutral-600 bg-neutral-800/50 px-2 py-1 rounded">
-                      {task.state}
-                    </span>
+                    <ChevronRight
+                      size={16}
+                      className="text-neutral-700 group-hover:text-blue-500 transition-colors"
+                    />
                   </div>
                   <h3 className="text-xl font-bold text-neutral-100 mb-3 group-hover:text-blue-400 transition-colors">
                     {task.name}
                   </h3>
-                  <p className="text-neutral-500 leading-relaxed text-sm">
+                  <p className="text-neutral-500 leading-relaxed text-sm line-clamp-2">
                     {task.summary ||
                       'No summary available for this focus task.'}
                   </p>
@@ -152,6 +172,19 @@ export default function FocusPage() {
           )}
         </div>
       </div>
+
+      {/* 共通詳細モーダル */}
+      {selectedTask && (
+        <TaskModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onSave={(name, date, status) =>
+            handleSaveTask(selectedTask, name, date, status)
+          }
+          onComplete={handleComplete}
+          processingId={processingId}
+        />
+      )}
     </div>
   );
 }
