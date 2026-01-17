@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import { Menu } from 'lucide-react'; // ハンバーガーアイコン
-import { format, startOfWeek, addDays } from 'date-fns';
+import SettingsModal from './SettingsModal'; // インポート
+import { Menu } from 'lucide-react';
+
+type TaskFilter = 'All' | 'Work';
 
 export default function ClientLayout({
   children,
@@ -12,30 +14,59 @@ export default function ClientLayout({
 }) {
   const [isOpenMobile, setIsOpenMobile] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
 
-  // 仮の設定モーダルステート（中身は後でpage.tsxから移設可能です）
-  const openSettings = () => {
-    // ひとまずWindowのアラートなどで確認
-    // 最終的にはここから設定モーダルを制御できるようにします
-    window.dispatchEvent(new CustomEvent('open-settings'));
+  // --- 設定用の共有ステート ---
+  const [filter, setFilter] = useState<TaskFilter>('All');
+  const [isCompactPast, setIsCompactPast] = useState<boolean>(false);
+
+  // 初期化時にLocalStorageから読み込む
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedFilter = localStorage.getItem('wocheFilter') as TaskFilter;
+      const savedCompact = localStorage.getItem('wocheCompactPast');
+      if (savedFilter) setFilter(savedFilter);
+      if (savedCompact) setIsCompactPast(savedCompact === 'true');
+    }
+  }, []);
+
+  // 設定変更時にLocalStorageへ保存し、カスタムイベントを発火して各ページに通知する
+  const handleSetFilter = (newFilter: TaskFilter) => {
+    setFilter(newFilter);
+    localStorage.setItem('wocheFilter', newFilter);
+    window.dispatchEvent(new CustomEvent('settings-updated'));
   };
 
+  const handleSetCompactPast = (val: boolean) => {
+    setIsCompactPast(val);
+    localStorage.setItem('wocheCompactPast', val.toString());
+    window.dispatchEvent(new CustomEvent('settings-updated'));
+  };
+
+  const openSettings = () => {
+    setShowSettings(true);
+  };
+
+  // 時刻更新のタイマー
   useEffect(() => {
-    setCurrentTime(
-      new Date().toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    );
-    const timer = setInterval(() => {
+    const updateTime = () => {
       setCurrentTime(
         new Date().toLocaleTimeString('ja-JP', {
           hour: '2-digit',
           minute: '2-digit',
         }),
       );
-    }, 1000);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // サイドバーなど外部からの open-settings イベントをリッスン
+  useEffect(() => {
+    const handleOpen = () => setShowSettings(true);
+    window.addEventListener('open-settings', handleOpen);
+    return () => window.removeEventListener('open-settings', handleOpen);
   }, []);
 
   return (
@@ -49,7 +80,6 @@ export default function ClientLayout({
       <div className="flex-1 flex flex-col min-w-0 md:ml-16 transition-all duration-300">
         <header className="flex-none p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/95 z-20">
           <div className="flex items-center gap-3">
-            {/* スマホ用ハンバーガーボタン */}
             <button
               className="md:hidden text-white p-1"
               onClick={() => setIsOpenMobile(true)}
@@ -72,6 +102,17 @@ export default function ClientLayout({
 
         <main className="flex-1 overflow-hidden">{children}</main>
       </div>
+
+      {/* 設定モーダルをここに配置することで全ページ共通化 */}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          filter={filter}
+          setFilter={handleSetFilter}
+          isCompactPast={isCompactPast}
+          setIsCompactPast={handleSetCompactPast}
+        />
+      )}
     </div>
   );
 }
