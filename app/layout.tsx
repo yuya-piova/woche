@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Gleis',
   description: 'Task Dashboard',
-  manifest: '/manifest.json', // 必須: マニフェストファイルの読み込み
+  manifest: '/manifest.webmanifest', // 必須: マニフェストファイルの読み込み
 
   // iOS向けPWA設定（ホーム画面に追加した時の挙動）
   appleWebApp: {
