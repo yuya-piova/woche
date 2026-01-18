@@ -200,11 +200,11 @@ export default function MonthlyPage() {
                     1. flex-1 を flex-none に変更（自動で縮まないようにする）
                     2. min-w-[20px] などの固定幅を指定して横幅を一定にする 
                   */
-                  className="flex-none w-[calc(100%/15)] min-w-[24px] flex flex-col items-center gap-2 group relative justify-end"
+                  className="flex-none w-[calc(100%/15)] min-w-[12px] flex flex-col items-center gap-2 group relative justify-end"
                 >
                   {/* バーのラッパー */}
                   <div
-                    className="w-full max-w-[12px] flex flex-col-reverse justify-start transition-all duration-500"
+                    className="w-full max-w-[6px] flex flex-col-reverse justify-start transition-all duration-500"
                     style={{
                       height: `${d.total * 32}px`,
                       minHeight: d.total > 0 ? '4px' : '2px',
@@ -245,7 +245,7 @@ export default function MonthlyPage() {
                   </div>
 
                   {/* 日付ラベル */}
-                  <span className="text-[8px] font-bold text-neutral-700">
+                  <span className="text-[7px] font-bold text-neutral-700">
                     {d.label}
                   </span>
                 </div>
