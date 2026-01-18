@@ -198,25 +198,28 @@ export default function MonthlyPage() {
           </div>
         </div>
 
-        {/* Activity Heatmap (積み上げ二色バー) */}
+        {/* Activity Heatmap セクション */}
         <section className="bg-neutral-900/30 p-8 rounded-[40px] border border-neutral-800/50">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-8 flex items-center gap-2">
             <BarChart3 size={14} /> Activity Stack
           </h3>
-          <div className="flex items-end justify-between gap-1 h-32 w-full">
+
+          {/* 修正1: h-32 を min-h-[128px] に変え、高さを固定しない */}
+          <div className="flex items-end justify-between gap-1 min-h-[128px] w-full pt-12">
             {dailyStats.map((d, i) => (
               <div
                 key={i}
-                className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end"
+                className="flex-1 flex flex-col items-center gap-2 group relative justify-end"
               >
+                {/* 修正2: height を % ではなく、タスク数に応じた px 計算に変える (1タスク = 32px) */}
                 <div
                   className="w-full flex flex-col-reverse justify-start transition-all duration-500"
                   style={{
-                    height: `${(d.total / maxDailyCount) * 100}%`,
+                    height: `${d.total * 32}px`,
                     minHeight: d.total > 0 ? '4px' : '2px',
                   }}
                 >
-                  {/* Work部 (青) - styleで背景色を固定 */}
+                  {/* Work部 (青) */}
                   <div
                     style={{
                       flexGrow: d.workCount,
@@ -224,14 +227,13 @@ export default function MonthlyPage() {
                       backgroundColor: '#2563eb',
                     }}
                     className={`w-full transition-all ${
-                      // Lifeがない、またはフィルタで非表示の時は「上」も丸くする
                       filter === 'Work' || d.lifeCount === 0
                         ? 'rounded-sm'
                         : 'rounded-b-sm'
                     }`}
                   />
 
-                  {/* Life部 (緑) - styleで背景色を固定 */}
+                  {/* Life部 (緑) */}
                   {filter === 'All' && d.lifeCount > 0 && (
                     <div
                       style={{
@@ -240,7 +242,6 @@ export default function MonthlyPage() {
                         backgroundColor: '#16a34a',
                       }}
                       className={`w-full transition-all ${
-                        // Workがない時は「下」も丸くする
                         d.workCount === 0 ? 'rounded-sm' : 'rounded-t-sm'
                       }`}
                     />
@@ -251,6 +252,8 @@ export default function MonthlyPage() {
                     {d.workCount}W {filter === 'All' && `/ ${d.lifeCount}L`}
                   </div>
                 </div>
+
+                {/* 日付ラベル */}
                 <span className="text-[8px] font-bold text-neutral-700">
                   {d.label}
                 </span>
@@ -258,7 +261,6 @@ export default function MonthlyPage() {
             ))}
           </div>
         </section>
-
         {/* Completion Log */}
         <section className="space-y-4">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
