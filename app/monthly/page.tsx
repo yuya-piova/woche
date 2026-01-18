@@ -216,19 +216,22 @@ export default function MonthlyPage() {
                     minHeight: d.total > 0 ? '4px' : '2px',
                   }}
                 >
-                  {/* Work部 (青) */}
+                  {/* Work部 (青) - styleで背景色を固定 */}
                   <div
-                    className="bg-blue-600 w-full rounded-b-sm"
+                    className="w-full rounded-b-sm"
                     style={{
                       height: `${(d.workCount / (d.total || 1)) * 100}%`,
+                      backgroundColor: '#2563eb', // blue-600
                     }}
                   />
-                  {/* Life部 (緑) */}
+
+                  {/* Life部 (緑) - styleで背景色を固定 */}
                   {filter === 'All' && (
                     <div
-                      className="bg-green-600 w-full rounded-t-sm"
+                      className="w-full rounded-t-sm"
                       style={{
                         height: `${(d.lifeCount / (d.total || 1)) * 100}%`,
+                        backgroundColor: '#16a34a', // green-600
                       }}
                     />
                   )}
