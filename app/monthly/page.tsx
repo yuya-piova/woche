@@ -52,22 +52,20 @@ export default function MonthlyPage() {
     };
     syncSettings();
     window.addEventListener('settings-updated', syncSettings);
-    return () => window.removeEventListener('settings-updated', syncSettings);
+    window.addEventListener('storage', syncSettings);
+    return () => {
+      window.removeEventListener('settings-updated', syncSettings);
+      window.removeEventListener('storage', syncSettings);
+    };
   }, [currentMonth]);
 
-  // --- 集計ロジック ---
   const doneTasks = tasks.filter((t) => t.state === 'Done');
-
-  // Balance（集計）は設定にかかわらず常に両方を計算
   const workDoneCount = doneTasks.filter((t) => t.cat === 'Work').length;
   const lifeDoneCount = doneTasks.filter((t) => t.cat === 'Life').length;
-
-  // 表示用フィルタリング（STATSやログ、チャートに適用）
   const displayDoneTasks = doneTasks.filter(
     (t) => filter === 'All' || t.cat === 'Work',
   );
 
-  // 日別データの作成（積み上げグラフ用）
   const daysInMonth = eachDayOfInterval({
     start: startOfMonth(currentMonth),
     end: endOfMonth(currentMonth),
@@ -75,229 +73,222 @@ export default function MonthlyPage() {
 
   const dailyStats = daysInMonth.map((day) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    const dayTasks = doneTasks.filter((t) => {
-      if (!t.date) return false;
-      // 日付に幅がある場合(YYYY-MM-DDTHH:mm...)の開始日のみを判定
-      return t.date.split('T')[0] === dayStr;
-    });
-
+    const dayTasks = doneTasks.filter(
+      (t) => (t.date || '').split('T')[0] === dayStr,
+    );
     const workCount = dayTasks.filter((t) => t.cat === 'Work').length;
-    const lifeCount = dayTasks.filter((t) => t.cat === 'Life').length;
-
-    // 設定がWorkのみの場合はLifeを0として扱う（チャートの表示制御）
-    const effectiveLifeCount = filter === 'All' ? lifeCount : 0;
-
+    const lifeCount =
+      filter === 'All' ? dayTasks.filter((t) => t.cat === 'Life').length : 0;
     return {
       dayStr,
       workCount,
-      lifeCount: effectiveLifeCount,
-      total: workCount + effectiveLifeCount,
+      lifeCount,
+      total: workCount + lifeCount,
       label: format(day, 'd'),
     };
   });
 
   const maxDailyCount = Math.max(...dailyStats.map((d) => d.total), 1);
-
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
   return (
-    <div className="min-h-screen h-full bg-[#171717] text-white overflow-y-auto no-scrollbar p-6 md:p-12">
-      <div className="max-w-5xl mx-auto space-y-10">
-        {/* ヘッダー */}
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/20">
-              <CalendarIcon size={24} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tighter italic uppercase">
-                Monthly Archive
-              </h1>
-              <p className="text-neutral-500 font-bold text-sm tracking-widest">
-                {format(currentMonth, 'MMMM yyyy')}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex bg-neutral-900 rounded-xl p-1 border border-neutral-800">
-            <button
-              onClick={prevMonth}
-              className="p-2 hover:bg-neutral-800 rounded-lg transition"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div className="px-4 flex items-center font-black text-sm">
-              {format(currentMonth, 'yyyy.MM')}
-            </div>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-neutral-800 rounded-lg transition"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </header>
-
-        {/* STATS カード */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
-            <div className="text-blue-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-              <Trophy size={14} /> {filter === 'All' ? 'Total' : 'Work'}{' '}
-              Achievements
-            </div>
-            <div className="text-5xl font-black italic">
-              {displayDoneTasks.length}
-            </div>
-            <div className="text-neutral-600 text-[10px] font-bold uppercase">
-              Tasks completed this month
-            </div>
-          </div>
-
-          {/* Balanceカード：常に両方を集計表示 */}
-          <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
-            <div className="text-green-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-              <PieChart size={14} /> Balance (Work/Life)
-            </div>
-            <div className="flex items-end gap-4">
-              <div className="text-3xl font-black text-blue-400">
-                {workDoneCount}
-                <span className="text-xs ml-1 text-neutral-600">W</span>
+    /* 修正2: 見切れ防止のため flex-col と overflow-hidden を使用 */
+    <div className="flex flex-col h-full bg-[#171717] text-white overflow-hidden">
+      {/* コンテンツエリア: ここでスクロールさせる */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-6 md:p-12">
+        <div className="max-w-5xl mx-auto space-y-10 pb-20">
+          {' '}
+          {/* 下部に余白を確保 */}
+          {/* ヘッダー: モバイルではヒーロー(左側)を非表示にし、月選択のみ表示 */}
+          <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="hidden md:flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/20">
+                <CalendarIcon size={24} />
               </div>
-              <div className="text-3xl font-black text-green-400">
-                {lifeDoneCount}
-                <span className="text-xs ml-1 text-neutral-600">L</span>
+              <div>
+                <h1 className="text-3xl font-black tracking-tighter italic uppercase leading-none">
+                  Monthly Archive
+                </h1>
+                <p className="text-neutral-500 font-bold text-sm tracking-widest mt-1">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </p>
               </div>
             </div>
-            <div className="w-full h-1.5 bg-neutral-800 rounded-full mt-2 overflow-hidden flex">
-              <div
-                className="h-full bg-blue-500 transition-all"
-                style={{
-                  width: `${(workDoneCount / (doneTasks.length || 1)) * 100}%`,
-                }}
-              />
-              <div
-                className="h-full bg-green-500 transition-all"
-                style={{
-                  width: `${(lifeDoneCount / (doneTasks.length || 1)) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
 
-          <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
-            <div className="text-purple-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-              <BarChart3 size={14} /> Daily Peak
-            </div>
-            <div className="text-5xl font-black italic">
-              {maxDailyCount > 0 ? maxDailyCount : 0}
-            </div>
-            <div className="text-neutral-600 text-[10px] font-bold uppercase">
-              Max activity in a day
-            </div>
-          </div>
-        </div>
-
-        {/* Activity Heatmap セクション */}
-        <section className="bg-neutral-900/30 p-8 rounded-[40px] border border-neutral-800/50">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-8 flex items-center gap-2">
-            <BarChart3 size={14} /> Activity Stack
-          </h3>
-
-          {/* 修正1: h-32 を min-h-[128px] に変え、高さを固定しない */}
-          <div className="flex items-end justify-between gap-1 min-h-[128px] w-full pt-12">
-            {dailyStats.map((d, i) => (
-              <div
-                key={i}
-                className="flex-1 flex flex-col items-center gap-2 group relative justify-end"
+            <div className="flex bg-neutral-900 rounded-xl p-1 border border-neutral-800 self-end md:self-auto">
+              <button
+                onClick={prevMonth}
+                className="p-2 hover:bg-neutral-800 rounded-lg transition"
               >
-                {/* 修正2: height を % ではなく、タスク数に応じた px 計算に変える (1タスク = 32px) */}
-                <div
-                  className="w-full flex flex-col-reverse justify-start transition-all duration-500"
-                  style={{
-                    height: `${d.total * 32}px`,
-                    minHeight: d.total > 0 ? '4px' : '2px',
-                  }}
-                >
-                  {/* Work部 (青) */}
-                  <div
-                    style={{
-                      flexGrow: d.workCount,
-                      flexBasis: 0,
-                      backgroundColor: '#2563eb',
-                    }}
-                    className={`w-full transition-all ${
-                      filter === 'Work' || d.lifeCount === 0
-                        ? 'rounded-sm'
-                        : 'rounded-b-sm'
-                    }`}
-                  />
+                <ChevronLeft size={20} />
+              </button>
+              <div className="px-4 flex items-center font-black text-sm min-w-[80px] justify-center">
+                {format(currentMonth, 'yyyy.MM')}
+              </div>
+              <button
+                onClick={nextMonth}
+                className="p-2 hover:bg-neutral-800 rounded-lg transition"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </header>
+          {/* STATS カード */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
+              <div className="text-blue-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                <Trophy size={14} /> {filter === 'All' ? 'Total' : 'Work'}{' '}
+                Achievements
+              </div>
+              <div className="text-5xl font-black italic">
+                {displayDoneTasks.length}
+              </div>
+            </div>
 
-                  {/* Life部 (緑) */}
-                  {filter === 'All' && d.lifeCount > 0 && (
+            <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
+              <div className="text-green-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                <PieChart size={14} /> Balance (Work/Life)
+              </div>
+              <div className="flex items-end gap-4">
+                <div className="text-3xl font-black text-blue-400">
+                  {workDoneCount}
+                  <span className="text-xs ml-1 text-neutral-600">W</span>
+                </div>
+                <div className="text-3xl font-black text-green-400">
+                  {lifeDoneCount}
+                  <span className="text-xs ml-1 text-neutral-600">L</span>
+                </div>
+              </div>
+              <div className="w-full h-1.5 bg-neutral-800 rounded-full mt-2 overflow-hidden flex">
+                <div
+                  className="h-full bg-blue-500 transition-all"
+                  style={{
+                    width: `${(workDoneCount / (doneTasks.length || 1)) * 100}%`,
+                  }}
+                />
+                <div
+                  className="h-full bg-green-500 transition-all"
+                  style={{
+                    width: `${(lifeDoneCount / (doneTasks.length || 1)) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-neutral-900/50 p-6 rounded-[32px] border border-neutral-800 flex flex-col gap-2">
+              <div className="text-purple-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                <BarChart3 size={14} /> Daily Peak
+              </div>
+              <div className="text-5xl font-black italic">
+                {maxDailyCount > 0 ? maxDailyCount : 0}
+              </div>
+            </div>
+          </div>
+          {/* Activity Stack */}
+          <section className="bg-neutral-900/30 p-8 rounded-[40px] border border-neutral-800/50">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-8 flex items-center gap-2">
+              <BarChart3 size={14} /> Activity Stack
+            </h3>
+
+            {/* 修正ポイント: overflow-x-auto を確実に効かせ、中の要素が潰れないようにする */}
+            <div className="flex items-end justify-between gap-1 min-h-[128px] w-full pt-12 overflow-x-auto no-scrollbar pb-2">
+              {dailyStats.map((d, i) => (
+                <div
+                  key={i}
+                  /* 修正ポイント: 
+                    1. flex-1 を flex-none に変更（自動で縮まないようにする）
+                    2. min-w-[20px] などの固定幅を指定して横幅を一定にする 
+                  */
+                  className="flex-none w-[calc(100%/15)] min-w-[24px] flex flex-col items-center gap-2 group relative justify-end"
+                >
+                  {/* バーのラッパー */}
+                  <div
+                    className="w-full max-w-[12px] flex flex-col-reverse justify-start transition-all duration-500"
+                    style={{
+                      height: `${d.total * 32}px`,
+                      minHeight: d.total > 0 ? '4px' : '2px',
+                    }}
+                  >
+                    {/* Work部 (青) */}
                     <div
                       style={{
-                        flexGrow: d.lifeCount,
+                        flexGrow: d.workCount,
                         flexBasis: 0,
-                        backgroundColor: '#16a34a',
+                        backgroundColor: '#2563eb',
                       }}
                       className={`w-full transition-all ${
-                        d.workCount === 0 ? 'rounded-sm' : 'rounded-t-sm'
+                        filter === 'Work' || d.lifeCount === 0
+                          ? 'rounded-sm'
+                          : 'rounded-b-sm'
                       }`}
                     />
-                  )}
 
-                  {/* ツールチップ */}
-                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-black text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-xl">
-                    {d.workCount}W {filter === 'All' && `/ ${d.lifeCount}L`}
+                    {/* Life部 (緑) */}
+                    {filter === 'All' && d.lifeCount > 0 && (
+                      <div
+                        style={{
+                          flexGrow: d.lifeCount,
+                          flexBasis: 0,
+                          backgroundColor: '#16a34a',
+                        }}
+                        className={`w-full transition-all ${
+                          d.workCount === 0 ? 'rounded-sm' : 'rounded-t-sm'
+                        }`}
+                      />
+                    )}
+
+                    {/* ツールチップ */}
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-black text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-xl">
+                      {d.workCount}W {filter === 'All' && `/ ${d.lifeCount}L`}
+                    </div>
                   </div>
-                </div>
 
-                {/* 日付ラベル */}
-                <span className="text-[8px] font-bold text-neutral-700">
-                  {d.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-        {/* Completion Log */}
-        <section className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
-            <CheckCircle2 size={14} /> Completion Log ({filter})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {displayDoneTasks.map((task) => (
-              <div
-                key={task.id}
-                className="group flex items-center gap-4 bg-neutral-900/20 p-4 rounded-2xl border border-neutral-800/50 hover:border-blue-500/30 transition-all"
-              >
+                  {/* 日付ラベル */}
+                  <span className="text-[8px] font-bold text-neutral-700">
+                    {d.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+          {/* Completion Log */}
+          <section className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 flex items-center gap-2">
+              <CheckCircle2 size={14} /> Completion Log
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {displayDoneTasks.map((task) => (
                 <div
-                  className={`w-2 h-2 rounded-full shrink-0 ${task.cat === 'Work' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold truncate text-neutral-200">
-                    {task.name}
+                  key={task.id}
+                  className="group flex items-center gap-4 bg-neutral-900/20 p-4 rounded-2xl border border-neutral-800/50 hover:border-blue-500/30 transition-all"
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full shrink-0 ${task.cat === 'Work' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate text-neutral-200">
+                      {task.name}
+                    </div>
+                    <div className="text-[10px] text-neutral-600 font-mono italic">
+                      {task.date ? task.date.split('T')[0] : 'No Date'}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-neutral-600 font-mono italic">
-                    {/* 日付文字列から開始日のみを抽出 */}
-                    {task.date ? task.date.split('T')[0] : 'No Date'}
-                  </div>
+                  {task.url && (
+                    <a
+                      href={task.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-neutral-700 hover:text-white transition-colors"
+                    >
+                      <ExternalLink size={16} />
+                    </a>
+                  )}
                 </div>
-                {task.url && (
-                  <a
-                    href={task.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 text-neutral-700 hover:text-white transition-colors"
-                  >
-                    <ExternalLink size={16} />
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
