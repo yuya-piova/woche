@@ -22,16 +22,19 @@ import { useTasks } from '@/hooks/useTasks';
 
 export default function FocusPage() {
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // 設定ステート（ClientLayoutと同期）
+  const [filter, setFilter] = useState<'All' | 'Work'>('All');
 
   const fetchTasks = async () => {
     try {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const res = await fetch(`/api/tasks?date=${todayStr}`);
-      if (!res.ok) throw new Error('Failed');
+      // 完了済み(Done)も含めて当月分を取得
+      const res = await fetch('/api/tasks');
+      if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      setTasks(Array.isArray(data) ? data : []);
+      setAllTasks(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
@@ -40,14 +43,54 @@ export default function FocusPage() {
   };
 
   const { handleSaveTask, handleComplete, processingId } = useTasks(
-    tasks,
+    allTasks,
     fetchTasks,
   );
 
   useEffect(() => {
     fetchTasks();
+    const poller = setInterval(fetchTasks, 60000);
+
+    const syncSettings = () => {
+      const savedFilter = localStorage.getItem('gleisFilter');
+      if (savedFilter) setFilter(savedFilter as 'All' | 'Work');
+    };
+
+    syncSettings();
+    window.addEventListener('settings-updated', syncSettings);
+    window.addEventListener('storage', syncSettings);
+
+    return () => {
+      clearInterval(poller);
+      window.removeEventListener('settings-updated', syncSettings);
+      window.removeEventListener('storage', syncSettings);
+    };
   }, []);
 
+  // --- データ集計ロジック ---
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // 1. リスト表示用（今日の日付 & 未完了 & カテゴリフィルタ）
+  const displayTasks = allTasks.filter(
+    (t) =>
+      t.date === todayStr &&
+      t.state !== 'Done' &&
+      (filter === 'All' || t.cat === 'Work'),
+  );
+
+  // 2. STATS用：今日の進捗計算
+  const todayTasks = allTasks.filter(
+    (t) => t.date === todayStr && (filter === 'All' || t.cat === 'Work'),
+  );
+  const todayDoneCount = todayTasks.filter((t) => t.state === 'Done').length;
+  const todayRemainingCount = todayTasks.filter(
+    (t) => t.state !== 'Done',
+  ).length;
+  const totalToday = todayDoneCount + todayRemainingCount;
+  const progressRate =
+    totalToday > 0 ? Math.round((todayDoneCount / totalToday) * 100) : 0;
+
+  // --- カレンダー・進捗計算 ---
   const today = new Date();
   const yearStart = startOfYear(today);
   const yearEnd = endOfYear(today);
@@ -55,8 +98,6 @@ export default function FocusPage() {
   const passedDays = differenceInDays(today, yearStart) + 1;
   const yearProgress = ((passedDays / totalDaysInYear) * 100).toFixed(1);
   const weekNumber = getWeek(today, { weekStartsOn: 1 });
-
-  const remainingTasks = tasks.length;
 
   return (
     <div className="h-full bg-[#171717] flex flex-col md:flex-row overflow-hidden no-scrollbar">
@@ -70,7 +111,7 @@ export default function FocusPage() {
             </span>
           </div>
           <div className="flex items-baseline gap-4">
-            <div className="text-5xl font-black tracking-tighter">
+            <div className="text-5xl font-black tracking-tighter text-white">
               {format(today, 'MM.dd')}
             </div>
             <div className="text-xl font-black text-neutral-700 font-mono tracking-tighter">
@@ -102,22 +143,32 @@ export default function FocusPage() {
           </div>
         </section>
 
+        {/* タスク集計パネル：Doneを含めた進捗を表示 */}
         <div className="bg-neutral-900/50 p-6 rounded-[24px] border border-neutral-800 flex flex-col gap-4">
-          <div className="text-neutral-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-            <Target size={12} /> Today's Stats
+          <div className="flex justify-between items-center">
+            <div className="text-neutral-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+              <Target size={12} /> Today's Focus
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-600/20 text-blue-400 rounded-full border border-blue-500/20">
+              {progressRate}% Done
+            </span>
           </div>
           <div className="flex items-end justify-between">
             <div className="flex flex-col">
-              {/* 未完了数のみを大きく表示 */}
               <span className="text-5xl font-black text-white leading-none">
-                {remainingTasks}
+                {todayRemainingCount}
               </span>
               <span className="text-[10px] text-neutral-600 font-bold uppercase mt-2 tracking-tighter">
                 Active Tasks Remaining
               </span>
             </div>
-            <div className="text-blue-500/20">
-              <Circle size={40} strokeWidth={4} />
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <Circle size={48} className="text-neutral-800" strokeWidth={4} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-mono font-bold text-blue-500">
+                  {todayDoneCount}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -126,7 +177,7 @@ export default function FocusPage() {
       {/* 右側：メインコンテンツエリア */}
       <div className="flex-1 p-6 md:p-12 overflow-y-auto no-scrollbar">
         <div className="max-w-3xl mx-auto">
-          {/* モバイル表示でバナーを消す */}
+          {/* モバイルでは非表示 */}
           <div className="hidden md:flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-500">
               <Target size={24} />
@@ -145,22 +196,21 @@ export default function FocusPage() {
                 />
               ))}
             </div>
-          ) : tasks.length === 0 ? (
+          ) : displayTasks.length === 0 ? (
             <div className="py-20 text-center border-2 border-dashed border-neutral-900 rounded-[32px]">
               <p className="text-neutral-600 font-bold italic">
-                No focus tasks for today.
+                No active tasks for today.
               </p>
             </div>
           ) : (
             <div className="space-y-4 md:space-y-6">
-              {tasks.map((task) => (
+              {displayTasks.map((task) => (
                 <div
                   key={task.id}
                   className="group p-5 md:p-6 bg-neutral-900/40 rounded-[24px] md:rounded-[28px] border border-neutral-800/50 hover:border-blue-500/30 transition-all duration-300 shadow-xl relative"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex flex-wrap gap-2">
-                      {/* Category Badge */}
                       <span
                         className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                           task.theme === 'blue'
@@ -172,21 +222,19 @@ export default function FocusPage() {
                       >
                         {task.cat || 'No Cat'}
                       </span>
-                      {/* Stateバッジ */}
                       <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-neutral-800 text-neutral-500 border border-neutral-700">
                         {task.state}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Notionリンクボタン */}
                       {task.url && (
                         <a
                           href={task.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-2 text-neutral-600 hover:text-white transition-colors"
-                          onClick={(e) => e.stopPropagation()} // 親のクリックイベント（モーダル）を防止
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink size={16} />
                         </a>
