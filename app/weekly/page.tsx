@@ -16,7 +16,7 @@ import { useTasks } from '@/hooks/useTasks';
 type TaskFilter = 'All' | 'Work';
 type PopupState = Task | null;
 
-export default function TaskDashboard() {
+export default function WeeklyPage() {
   // --- 1. 定数・初期値定義 ---
   const STATE_COLORS: { [key: string]: string } = {
     INBOX: 'bg-red-500',
@@ -43,7 +43,6 @@ export default function TaskDashboard() {
   const [loading, setLoading] = useState(true);
   const [popupTask, setPopupTask] = useState<PopupState>(null);
 
-  // 設定ステート（ClientLayoutと同期させる）
   const [filter, setFilter] = useState<TaskFilter>('All');
   const [isCompactPast, setIsCompactPast] = useState<boolean>(false);
 
@@ -68,7 +67,7 @@ export default function TaskDashboard() {
     }
   };
 
-  // --- 4. カスタムフック (ロジックの切り出し) ---
+  // --- 4. カスタムフック ---
   const { handleSaveTask, handleComplete, processingId } = useTasks(
     tasks,
     fetchTasks,
@@ -81,7 +80,6 @@ export default function TaskDashboard() {
     return () => clearInterval(poller);
   }, []);
 
-  // ClientLayoutでの設定変更を検知して同期する
   useEffect(() => {
     const syncSettings = () => {
       const savedFilter = localStorage.getItem('gleisFilter');
@@ -90,37 +88,17 @@ export default function TaskDashboard() {
       if (savedCompact) setIsCompactPast(savedCompact === 'true');
     };
 
-    syncSettings(); // 初回読み込み
+    syncSettings();
     window.addEventListener('settings-updated', syncSettings);
-    window.addEventListener('storage', syncSettings);
-    return () => {
-      window.removeEventListener('settings-updated', syncSettings);
-      window.removeEventListener('storage', syncSettings);
-    };
+    return () => window.removeEventListener('settings-updated', syncSettings);
   }, []);
 
-  // スリープ抑制
-  useEffect(() => {
-    let wakeLock: any = null;
-    const requestWakeLock = async () => {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await (navigator as any).wakeLock.request('screen');
-        }
-      } catch (err: any) {
-        console.error(`${err.name}, ${err.message}`);
-      }
-    };
-    requestWakeLock();
-    return () => {
-      if (wakeLock) wakeLock.release();
-    };
-  }, []);
-
-  // --- 6. フィルタリングロジック ---
+  // --- 6. フィルタリングロジック (Doneを除外するように修正) ---
   const filterTasksByCat = (tasksToFilter: Task[]) => {
-    if (filter === 'All') return tasksToFilter;
-    return tasksToFilter.filter((task) => task.cat === 'Work');
+    // 常にDoneを除外する
+    const activeTasks = tasksToFilter.filter((t) => t.state !== 'Done');
+    if (filter === 'All') return activeTasks;
+    return activeTasks.filter((task) => task.cat === 'Work');
   };
 
   const getTasksForDay = (day: Date) => {
@@ -168,23 +146,16 @@ export default function TaskDashboard() {
             />
             {task.name}
           </div>
-          <a
-            href={task.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neutral-500 hover:text-white p-1"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-              className="w-4 h-4"
+          {task.url && (
+            <a
+              href={task.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-neutral-500 hover:text-white p-1"
             >
-              <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
+              <ExternalLink size={14} />
+            </a>
+          )}
         </div>
         <div className="flex justify-between items-center mt-2">
           <div className="flex gap-1 flex-wrap">
@@ -204,6 +175,27 @@ export default function TaskDashboard() {
       </div>
     );
   };
+
+  // Lucideアイコンのインポート忘れ防止
+  function ExternalLink({ size }: { size: number }) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </svg>
+    );
+  }
 
   if (loading)
     return (
@@ -281,7 +273,6 @@ export default function TaskDashboard() {
         </div>
       </main>
 
-      {/* FAB */}
       <button
         onClick={() => setPopupTask(emptyTask)}
         className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-2xl z-50"
@@ -298,7 +289,6 @@ export default function TaskDashboard() {
         </svg>
       </button>
 
-      {/* Task Modal */}
       {popupTask && (
         <TaskModal
           task={popupTask}
