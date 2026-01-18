@@ -102,7 +102,7 @@ export default function MonthlyPage() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
   return (
-    <div className="h-full bg-[#171717] text-white overflow-y-auto no-scrollbar p-6 md:p-12">
+    <div className="min-h-screen h-full bg-[#171717] text-white overflow-y-auto no-scrollbar p-6 md:p-12">
       <div className="max-w-5xl mx-auto space-y-10">
         {/* ヘッダー */}
         <header className="flex items-center justify-between">
