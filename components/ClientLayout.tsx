@@ -98,9 +98,11 @@ export default function ClientLayout({
                   ? 'Focus'
                   : pathname === '/weekly'
                     ? 'Weekly'
-                    : pathname === '/meeting'
-                      ? 'Meeting'
-                      : 'Dashboard'}
+                    : pathname === '/monthly'
+                      ? 'Monthly'
+                      : pathname === '/meeting'
+                        ? 'Meeting'
+                        : 'Dashboard'}
               </span>
             </div>
           </div>

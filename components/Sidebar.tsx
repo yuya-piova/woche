@@ -25,6 +25,7 @@ export default function Sidebar({
   const menuItems = [
     { name: 'Focus', icon: <Target size={20} />, path: '/' },
     { name: 'Weekly', icon: <LayoutDashboard size={20} />, path: '/weekly' },
+    { name: 'Monthly', icon: <BarChart3 size={20} />, path: '/monthly' },
     { name: 'Meeting', icon: <Video size={20} />, path: '/meeting' },
   ];
 
