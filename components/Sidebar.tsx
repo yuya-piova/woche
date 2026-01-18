@@ -23,8 +23,8 @@ export default function Sidebar({
   const pathname = usePathname();
 
   const menuItems = [
-    { name: 'Focus', icon: <Target size={20} />, path: '/focus' },
-    { name: 'Weekly', icon: <LayoutDashboard size={20} />, path: '/' },
+    { name: 'Focus', icon: <Target size={20} />, path: '/' },
+    { name: 'Weekly', icon: <LayoutDashboard size={20} />, path: '/weekly' },
     { name: 'Meeting', icon: <Video size={20} />, path: '/meeting' },
   ];
 

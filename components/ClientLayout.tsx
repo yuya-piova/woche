@@ -95,9 +95,9 @@ export default function ClientLayout({
               </h1>
               <span className="font-bold text-lg leading-none text-white tracking-tight">
                 {pathname === '/'
-                  ? 'Weekly'
-                  : pathname === '/focus'
-                    ? 'Focus'
+                  ? 'Focus'
+                  : pathname === '/weekly'
+                    ? 'Weekly'
                     : pathname === '/meeting'
                       ? 'Meeting'
                       : 'Dashboard'}
