@@ -220,18 +220,20 @@ export default function MonthlyPage() {
                   <div
                     className="w-full rounded-b-sm"
                     style={{
-                      height: `${(d.workCount / (d.total || 1)) * 100}%`,
-                      backgroundColor: '#2563eb', // blue-600
+                      flexGrow: d.workCount, // 数値に応じた比率で伸びる
+                      flexBasis: 0,
+                      backgroundColor: '#2563eb',
                     }}
                   />
 
                   {/* Life部 (緑) - styleで背景色を固定 */}
-                  {filter === 'All' && (
+                  {filter === 'All' && d.lifeCount > 0 && (
                     <div
                       className="w-full rounded-t-sm"
                       style={{
-                        height: `${(d.lifeCount / (d.total || 1)) * 100}%`,
-                        backgroundColor: '#16a34a', // green-600
+                        flexGrow: d.lifeCount, // 数値に応じた比率で伸びる
+                        flexBasis: 0,
+                        backgroundColor: '#16a34a',
                       }}
                     />
                   )}
