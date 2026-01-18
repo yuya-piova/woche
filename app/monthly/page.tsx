@@ -200,7 +200,7 @@ export default function MonthlyPage() {
                     1. flex-1 を flex-none に変更（自動で縮まないようにする）
                     2. min-w-[20px] などの固定幅を指定して横幅を一定にする 
                   */
-                  className="flex-none w-[calc(100%/15)] min-w-[12px] flex flex-col items-center gap-2 group relative justify-end"
+                  className="flex-none w-[calc(100%/31)] min-w-[12px] flex flex-col items-center gap-2 group relative justify-end"
                 >
                   {/* バーのラッパー */}
                   <div
