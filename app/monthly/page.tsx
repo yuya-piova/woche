@@ -203,11 +203,11 @@ export default function MonthlyPage() {
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-8 flex items-center gap-2">
             <BarChart3 size={14} /> Activity Stack
           </h3>
-          <div className="flex items-end justify-between gap-1 h-32">
+          <div className="flex items-end justify-between gap-1 h-32 w-full">
             {dailyStats.map((d, i) => (
               <div
                 key={i}
-                className="flex-1 flex flex-col items-center gap-2 group relative"
+                className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end"
               >
                 <div
                   className="w-full flex flex-col-reverse justify-start transition-all duration-500"
