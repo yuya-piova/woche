@@ -6,24 +6,24 @@ const notion = new Client({ auth: process.env.NOTION_API_KEY });
 // POSTリクエストハンドラー
 export async function POST(request: Request) {
   try {
-    const { id, title, status, date } = await request.json();
+    const { id, name, status, date } = await request.json();
 
     if (!id) {
       return NextResponse.json(
         { error: 'Task ID is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const properties: any = {};
 
     // 1. タイトル（名前）更新の処理
-    if (title !== undefined) {
+    if (name !== undefined) {
       properties['Name'] = {
         title: [
           {
             text: {
-              content: title,
+              content: name,
             },
           },
         ],
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     // 詳細なエラー内容を返却するように変更
     return NextResponse.json(
       { error: error.message || 'Failed to update task on Notion' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
