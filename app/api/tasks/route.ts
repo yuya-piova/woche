@@ -81,45 +81,94 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Database ID missing' }, { status: 500 });
 
   const { searchParams } = new URL(req.url);
-  const monthParam = searchParams.get('month'); // "2024-05"
+  const monthParam = searchParams.get('month');
   const fiscalYearParam = searchParams.get('fiscalYear');
+  const catTagParam = searchParams.get('catTag'); // 追加: タグ指定パラメータ
 
-  let startDate: string;
-  let endDate: string;
+  let baseFilter: any;
+  const now = new Date();
 
+  // 1. ベースとなる期間/状態フィルターの構築
   if (fiscalYearParam) {
-    // 年度指定 (例: 2025 -> 2025-04-01 ~ 2026-03-31)
     const fy = parseInt(fiscalYearParam, 10);
-    startDate = `${fy}-04-01`;
-    endDate = `${fy + 1}-03-31`;
-  } else if (monthParam) {
-    // 月指定
-    const baseDate = parseISO(`${monthParam}-01`);
-    startDate = format(startOfMonth(baseDate), 'yyyy-MM-dd');
-    endDate = format(endOfMonth(baseDate), 'yyyy-MM-dd');
+    const startDate = `${fy}-04-01`;
+    const endDate = `${fy + 1}-03-31`;
+
+    baseFilter = {
+      or: [
+        {
+          and: [
+            { property: 'State', status: { does_not_equal: 'Done' } },
+            { property: 'State', status: { does_not_equal: 'Canceled' } },
+          ],
+        },
+        {
+          and: [
+            { property: 'Date', date: { on_or_after: startDate } },
+            { property: 'Date', date: { on_or_before: endDate } },
+          ],
+        },
+      ],
+    };
   } else {
-    // デフォルト (Focus/Weekly用)　当月1日 〜 今週末
-    const now = new Date();
-    startDate = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');
-    const nextWeekend = endOfWeek(addDays(now, 7), { weekStartsOn: 1 });
-    endDate = format(nextWeekend, 'yyyy-MM-dd');
+    let startDate: string;
+    let endDate: string;
+    if (monthParam) {
+      const baseDate = parseISO(`${monthParam}-01`);
+      startDate = format(startOfMonth(baseDate), 'yyyy-MM-dd');
+      endDate = format(endOfMonth(baseDate), 'yyyy-MM-dd');
+    } else {
+      startDate = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');
+      const nextWeekend = endOfWeek(addDays(now, 7), { weekStartsOn: 1 });
+      endDate = format(nextWeekend, 'yyyy-MM-dd');
+    }
+    baseFilter = {
+      and: [
+        { property: 'State', status: { does_not_equal: 'Canceled' } },
+        { property: 'Date', date: { on_or_after: startDate } },
+        { property: 'Date', date: { on_or_before: endDate } },
+      ],
+    };
   }
 
-  const filters: any[] = [
-    { property: 'State', status: { does_not_equal: 'Canceled' } },
-    { property: 'Date', date: { on_or_after: startDate } },
-    { property: 'Date', date: { on_or_before: endDate } },
-  ];
+  // 2. タグフィルターの結合 (AND条件)
+  let finalFilter = baseFilter;
 
-  const queryParams: QueryDatabaseParameters = {
-    database_id: DATABASE_ID,
-    filter: { and: filters } as any,
-    sorts: [{ property: 'Date', direction: 'ascending' }],
-  };
+  if (catTagParam) {
+    finalFilter = {
+      and: [
+        baseFilter,
+        {
+          property: 'CatTag',
+          multi_select: { contains: catTagParam }, // "PRJ"を含むものを抽出
+        },
+      ],
+    };
+  }
+
+  // 3. 全件取得ループ処理 (100件超え対策)
+  let allResults: any[] = [];
+  let hasMore = true;
+  let cursor: string | undefined = undefined;
 
   try {
-    const response = await notion.databases.query(queryParams);
-    const tasks: Task[] = response.results.filter(isFullPage).map((page) => {
+    while (hasMore) {
+      const queryParams: QueryDatabaseParameters = {
+        database_id: DATABASE_ID,
+        filter: finalFilter,
+        sorts: [{ property: 'Date', direction: 'ascending' }],
+        start_cursor: cursor,
+        page_size: 100,
+      };
+
+      const response = await notion.databases.query(queryParams);
+      allResults = [...allResults, ...response.results];
+      hasMore = response.has_more;
+      cursor = response.next_cursor ?? undefined;
+    }
+
+    const tasks: Task[] = allResults.filter(isFullPage).map((page) => {
+      // マッピング処理（変更なし）
       const cats = getProp.multiSelect(page, 'Cat');
       if (cats.length === 0) {
         const sCat = getProp.select(page, 'Cat');
@@ -154,6 +203,9 @@ export async function GET(req: Request) {
     return NextResponse.json(tasks);
   } catch (error) {
     console.error('Notion API Error:', error);
+    if (isNotionClientError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 },

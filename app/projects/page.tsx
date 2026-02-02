@@ -30,16 +30,11 @@ export default function ProjectsPage() {
     setLoading(true);
     try {
       // 年度指定でAPIを叩く
-      const res = await fetch(`/api/tasks?fiscalYear=${currentFY}`);
+      const res = await fetch(`/api/tasks?fiscalYear=${currentFY}&catTag=PRJ`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
 
-      // クライアント側で "PRJ" タグを含むものだけフィルタリング
-      const projectTasks = Array.isArray(data)
-        ? data.filter((t: Task) => t.catTag && t.catTag.includes('PRJ'))
-        : [];
-
-      setTasks(projectTasks);
+      setTasks(data);
     } catch (error) {
       console.error('Failed to fetch project tasks:', error);
     } finally {
