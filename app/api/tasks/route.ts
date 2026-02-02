@@ -83,36 +83,56 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const monthParam = searchParams.get('month');
   const fiscalYearParam = searchParams.get('fiscalYear');
-  const catTagParam = searchParams.get('catTag'); // 追加: タグ指定パラメータ
+  const catTagParam = searchParams.get('catTag');
 
-  let baseFilter: any;
+  let filterCondition: any;
   const now = new Date();
 
-  // 1. ベースとなる期間/状態フィルターの構築
+  // 共通のCatTagフィルタ（あれば作成）
+  const catTagFilter = catTagParam
+    ? {
+        property: 'CatTag',
+        multi_select: { contains: catTagParam },
+      }
+    : null;
+
   if (fiscalYearParam) {
+    // --- 年度指定モード (Projects等) ---
     const fy = parseInt(fiscalYearParam, 10);
     const startDate = `${fy}-04-01`;
     const endDate = `${fy + 1}-03-31`;
 
-    baseFilter = {
-      or: [
-        {
-          and: [
-            { property: 'State', status: { does_not_equal: 'Done' } },
-            { property: 'State', status: { does_not_equal: 'Canceled' } },
-          ],
-        },
-        {
-          and: [
-            { property: 'Date', date: { on_or_after: startDate } },
-            { property: 'Date', date: { on_or_before: endDate } },
-          ],
-        },
-      ],
-    };
+    // 条件パーツの定義
+    const activeConditions = [
+      { property: 'State', status: { does_not_equal: 'Done' } },
+      { property: 'State', status: { does_not_equal: 'Canceled' } },
+    ];
+
+    const dateConditions = [
+      { property: 'Date', date: { on_or_after: startDate } },
+      { property: 'Date', date: { on_or_before: endDate } },
+    ];
+
+    if (catTagFilter) {
+      // ネスト制限回避のため、分配法則を適用して展開
+      // (Active AND Tag) OR (DateRange AND Tag)
+      filterCondition = {
+        or: [
+          { and: [...activeConditions, catTagFilter] },
+          { and: [...dateConditions, catTagFilter] },
+        ],
+      };
+    } else {
+      // Tagなし: (Active) OR (DateRange)
+      filterCondition = {
+        or: [{ and: activeConditions }, { and: dateConditions }],
+      };
+    }
   } else {
+    // --- 通常モード (Focus / Weekly) ---
     let startDate: string;
     let endDate: string;
+
     if (monthParam) {
       const baseDate = parseISO(`${monthParam}-01`);
       startDate = format(startOfMonth(baseDate), 'yyyy-MM-dd');
@@ -122,31 +142,21 @@ export async function GET(req: Request) {
       const nextWeekend = endOfWeek(addDays(now, 7), { weekStartsOn: 1 });
       endDate = format(nextWeekend, 'yyyy-MM-dd');
     }
-    baseFilter = {
-      and: [
-        { property: 'State', status: { does_not_equal: 'Canceled' } },
-        { property: 'Date', date: { on_or_after: startDate } },
-        { property: 'Date', date: { on_or_before: endDate } },
-      ],
-    };
+
+    const conditions: any[] = [
+      { property: 'State', status: { does_not_equal: 'Canceled' } },
+      { property: 'Date', date: { on_or_after: startDate } },
+      { property: 'Date', date: { on_or_before: endDate } },
+    ];
+
+    if (catTagFilter) {
+      conditions.push(catTagFilter);
+    }
+
+    filterCondition = { and: conditions };
   }
 
-  // 2. タグフィルターの結合 (AND条件)
-  let finalFilter = baseFilter;
-
-  if (catTagParam) {
-    finalFilter = {
-      and: [
-        baseFilter,
-        {
-          property: 'CatTag',
-          multi_select: { contains: catTagParam }, // "PRJ"を含むものを抽出
-        },
-      ],
-    };
-  }
-
-  // 3. 全件取得ループ処理 (100件超え対策)
+  // --- 全件取得ループ処理 ---
   let allResults: any[] = [];
   let hasMore = true;
   let cursor: string | undefined = undefined;
@@ -155,7 +165,7 @@ export async function GET(req: Request) {
     while (hasMore) {
       const queryParams: QueryDatabaseParameters = {
         database_id: DATABASE_ID,
-        filter: finalFilter,
+        filter: filterCondition,
         sorts: [{ property: 'Date', direction: 'ascending' }],
         start_cursor: cursor,
         page_size: 100,
@@ -168,7 +178,6 @@ export async function GET(req: Request) {
     }
 
     const tasks: Task[] = allResults.filter(isFullPage).map((page) => {
-      // マッピング処理（変更なし）
       const cats = getProp.multiSelect(page, 'Cat');
       if (cats.length === 0) {
         const sCat = getProp.select(page, 'Cat');
