@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 import {
   Briefcase,
   ChevronLeft,
@@ -11,11 +10,10 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import TaskModal from '@/components/TaskModal';
-import type { Task } from '@/app/api/tasks/route'; // 型定義をインポート
+import type { Task } from '@/app/api/tasks/route';
 import { useTasks } from '@/hooks/useTasks';
 
 export default function ProjectsPage() {
-  // --- 1. 年度の計算 (4月始まり) ---
   const getFiscalYear = (date: Date) => {
     return date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
   };
@@ -25,15 +23,13 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // --- 2. データ取得 ---
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      // 年度指定でAPIを叩く
+      // API側でフィルタリング済み
       const res = await fetch(`/api/tasks?fiscalYear=${currentFY}&catTag=PRJ`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-
       setTasks(data);
     } catch (error) {
       console.error('Failed to fetch project tasks:', error);
@@ -51,13 +47,11 @@ export default function ProjectsPage() {
     fetchTasks();
   }, [currentFY]);
 
-  // --- 3. ステータスごとの分類 ---
   const activeTasks = tasks.filter(
     (t) => t.state !== 'Done' && t.state !== 'Canceled',
   );
   const doneTasks = tasks.filter((t) => t.state === 'Done');
 
-  // 年度切り替え
   const prevFY = () => setCurrentFY((prev) => prev - 1);
   const nextFY = () => setCurrentFY((prev) => prev + 1);
 
@@ -133,54 +127,60 @@ export default function ProjectsPage() {
                     <div
                       key={task.id}
                       onClick={() => setSelectedTask(task)}
-                      className="group bg-neutral-900/50 border border-neutral-800 hover:border-indigo-500/50 p-5 rounded-2xl transition-all cursor-pointer hover:bg-neutral-900"
+                      className="group bg-neutral-900/50 border border-neutral-800 hover:border-indigo-500/50 p-5 rounded-2xl transition-all cursor-pointer hover:bg-neutral-900 flex flex-col justify-between min-h-[140px]"
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="px-2 py-1 rounded-md bg-neutral-800 text-[10px] font-bold text-neutral-400 border border-neutral-700 uppercase">
-                          {task.cat || 'No Cat'}
-                        </span>
-                        {task.url && (
-                          <a
-                            href={task.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-neutral-600 hover:text-white transition-colors"
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        )}
-                      </div>
-                      <h3 className="font-bold text-lg leading-tight mb-2 group-hover:text-indigo-400 transition-colors">
-                        {task.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-neutral-500 text-xs font-mono">
-                        <Calendar size={12} />
-                        {task.date || 'No Date'}
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-1">
-                        <span className="px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-300 text-[9px] font-bold border border-indigo-500/20">
-                          PRJ
-                        </span>
-                        {task.subCats.map((sub) => (
-                          <span
-                            key={sub}
-                            className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 text-[9px] border border-neutral-700"
-                          >
-                            {sub}
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="px-2 py-1 rounded-md bg-neutral-800 text-[10px] font-bold text-neutral-400 border border-neutral-700 uppercase">
+                            {task.cat || 'No Cat'}
                           </span>
-                        ))}
+                          {task.url && (
+                            <a
+                              href={task.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-neutral-600 hover:text-white transition-colors"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
+                          )}
+                        </div>
+                        <h3 className="font-bold text-lg leading-tight mb-2 group-hover:text-indigo-400 transition-colors">
+                          {task.name}
+                        </h3>
+                        <div className="flex items-center gap-2 text-neutral-500 text-xs font-mono">
+                          <Calendar size={12} />
+                          {task.date || 'No Date'}
+                        </div>
+                      </div>
+
+                      {/* 修正1: PRJ削除。左下にSubCat、右下にState */}
+                      <div className="mt-4 flex items-end justify-between border-t border-neutral-800 pt-3">
+                        <div className="flex flex-wrap gap-1">
+                          {task.subCats.map((sub) => (
+                            <span
+                              key={sub}
+                              className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 text-[9px] border border-neutral-700"
+                            >
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="px-2 py-1 rounded bg-indigo-900/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/20">
+                          {task.state}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </section>
 
-              {/* Completed Projects (折りたたみ可、または下部に配置) */}
+              {/* Completed Projects */}
               {doneTasks.length > 0 && (
-                <section className="opacity-60 hover:opacity-100 transition-opacity">
-                  <div className="flex items-center gap-2 mb-6 text-neutral-500">
-                    <span className="w-2 h-2 rounded-full bg-neutral-700"></span>
+                <section>
+                  <div className="flex items-center gap-2 mb-6 text-neutral-400">
+                    <span className="w-2 h-2 rounded-full bg-green-500/50"></span>
                     <h2 className="text-xs font-black uppercase tracking-[0.2em]">
                       Completed in FY{currentFY}
                     </h2>
@@ -189,17 +189,32 @@ export default function ProjectsPage() {
                     </span>
                   </div>
 
+                  {/* 修正2: 取り消し線やグレーアウトを廃止、視認性をActiveに近づける */}
                   <div className="space-y-2">
                     {doneTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="flex items-center gap-4 p-3 rounded-xl border border-neutral-800/50 bg-neutral-900/20 text-neutral-500"
+                        className="flex items-center gap-4 p-3 rounded-xl border border-neutral-800 bg-neutral-900/30 text-neutral-200"
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-900" />
-                        <span className="flex-1 text-sm font-bold line-through decoration-neutral-700">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]" />
+                        <span className="flex-1 text-sm font-bold">
                           {task.name}
                         </span>
-                        <span className="text-xs font-mono">{task.date}</span>
+
+                        {/* 日付の左にSubCatを表示 */}
+                        <div className="flex gap-1">
+                          {task.subCats.map((sub) => (
+                            <span
+                              key={sub}
+                              className="px-1.5 py-0.5 rounded text-[9px] bg-neutral-800 text-neutral-400 border border-neutral-700/50"
+                            >
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-xs font-mono text-neutral-400">
+                          {task.date}
+                        </span>
                       </div>
                     ))}
                   </div>
