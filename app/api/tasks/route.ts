@@ -26,6 +26,7 @@ export type Task = {
   state: string;
   cat: string;
   subCats: string[];
+  catTag: string[];
   theme: string;
   summary: string;
   url: string;
@@ -81,16 +82,23 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const monthParam = searchParams.get('month'); // "2024-05"
+  const fiscalYearParam = searchParams.get('fiscalYear');
 
   let startDate: string;
   let endDate: string;
 
-  if (monthParam) {
+  if (fiscalYearParam) {
+    // 年度指定 (例: 2025 -> 2025-04-01 ~ 2026-03-31)
+    const fy = parseInt(fiscalYearParam, 10);
+    startDate = `${fy}-04-01`;
+    endDate = `${fy + 1}-03-31`;
+  } else if (monthParam) {
+    // 月指定
     const baseDate = parseISO(`${monthParam}-01`);
     startDate = format(startOfMonth(baseDate), 'yyyy-MM-dd');
     endDate = format(endOfMonth(baseDate), 'yyyy-MM-dd');
   } else {
-    // デフォルト: 当月1日 〜 今週末
+    // デフォルト (Focus/Weekly用)　当月1日 〜 今週末
     const now = new Date();
     startDate = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');
     const nextWeekend = endOfWeek(addDays(now, 7), { weekStartsOn: 1 });
@@ -123,6 +131,12 @@ export async function GET(req: Request) {
           ? 'green'
           : 'gray';
 
+      let catTags = getProp.multiSelect(page, 'CatTag');
+      if (catTags.length === 0) {
+        const sTag = getProp.select(page, 'CatTag');
+        if (sTag) catTags.push(sTag);
+      }
+
       return {
         id: page.id,
         name: getProp.title(page, 'Name'),
@@ -130,6 +144,7 @@ export async function GET(req: Request) {
         state: getProp.status(page, 'State'),
         cat: cats[0] || '',
         subCats: getProp.multiSelect(page, 'SubCat'),
+        catTag: catTags,
         theme: themeColor,
         summary: getProp.text(page, '要約'),
         url: page.url,

@@ -100,9 +100,11 @@ export default function ClientLayout({
                     ? 'Weekly'
                     : pathname === '/monthly'
                       ? 'Monthly'
-                      : pathname === '/meeting'
-                        ? 'Meeting'
-                        : 'Dashboard'}
+                      : pathname === '/projects'
+                        ? 'Projects'
+                        : pathname === '/meeting'
+                          ? 'Meeting'
+                          : 'Dashboard'}
               </span>
             </div>
           </div>

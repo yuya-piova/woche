@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Briefcase,
   LayoutDashboard,
   Target,
   Video,
@@ -27,6 +28,7 @@ export default function Sidebar({
     { name: 'Focus', icon: <Target size={20} />, path: '/' },
     { name: 'Weekly', icon: <LayoutDashboard size={20} />, path: '/weekly' },
     { name: 'Monthly', icon: <BarChart3 size={20} />, path: '/monthly' },
+    { name: 'Projects', icon: <Briefcase size={20} />, path: '/projects' },
     { name: 'Meeting', icon: <Video size={20} />, path: '/meeting' },
   ];
 
